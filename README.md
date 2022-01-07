@@ -1,0 +1,3 @@
+# Washizu Mahjong
+
+WASHIZUUUuUU!!!
