@@ -2,10 +2,11 @@
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
-#define _DEBUG_LEVEL 10
+#define _DEBUG_LEVEL 1
 
 #if _DEBUG_LEVEL > 0
 #include <stdio.h>
+#include <assert.h>
 #define LOG_CRIT(...) printf(__VA_ARGS__)
 #else
 #define LOG_CRIT(...)
@@ -112,6 +113,9 @@ typedef unsigned int mj_triple;
 
 #define MJ_IS_OPEN(x) \
 (mj_bool)((x>>30)&0b11)
+
+#define MJ_TRIPLE_WEAK_EQ(x,y) \
+(((x)|3|3<<9|3<<18)==((y)|3|3<<9|3<<18))
 
 /* Size (size_t is too wide) */
 typedef unsigned short mj_size;
@@ -220,9 +224,12 @@ mj_size mj_triples(mj_hand hand, mj_triple *result, mj_size capacity);
  */
 mj_size mj_n_triples(mj_hand hand, mj_triple *triples, mj_size num_triples, mj_triple *result, mj_size n);
 
+mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *result);
+
 
 void mj_print_tile(mj_tile tile);
 void mj_print_pair(mj_pair pair);
 void mj_print_triple(mj_triple triple);
 void mj_print_hand(mj_hand hand);
+void mj_print_meld(mj_meld meld);
 

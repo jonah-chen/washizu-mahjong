@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MAX_CAPACITY 1000
+
 void mj_parse(char const *str, mj_hand *hand)
 {
     static char const mj_suit_strings[5] = {'m','p','s','w','d'}; 
@@ -166,7 +168,6 @@ mj_size mj_triples(mj_hand hand, mj_triple *result, mj_size capacity)
                 }
             }
         }
-
     }
 
     LOG_DEBUG("triples: %d\n", triples);
@@ -243,6 +244,7 @@ static mj_hand_array *mj_hand_array_init()
     mj_hand_array *tree = malloc(sizeof(mj_hand_array));
     tree->array = NULL;
     tree->size = 0;
+    tree->count = 0;
     return tree;
 }
 
@@ -298,7 +300,7 @@ static mj_hand_array *dfs(mj_tile *tiles, mj_size size, mj_triple *triples, mj_s
                     children = mj_hand_array_init();
                 mj_tree_node node = {triples[i], found};
                 mj_hand_array_insert(&children, node);
-#if _DEBUG_LEVEL > 3
+#if _DEBUG_LEVEL > 39
                 mj_print_triple(triples[i]);
                 LOG_DEBUG(" has %d children with depth %d\n", found->count, n);
 #endif
@@ -383,14 +385,105 @@ mj_size mj_n_triples(mj_hand hand, mj_triple *triples, mj_size num_triples, mj_t
 
     /* We call the rest of the hand recursively */
     mj_hand_array *children = dfs(hand.tiles, hand.size, triples, num_triples, n-perms);
-    mj_add_perms(perm_triples, perms, result, children, n);
-    mj_add_arrays(children, n, result);
+    
+    if (!children)
+        return 0;
+    
+    if (perms > 0)
+        mj_add_perms(perm_triples, perms, result, children, n);
+    if (perms < n)
+        mj_add_arrays(children, n, result);
 
     mj_size count = n * children->count;
 
     mj_hand_array_destroy(children);
 
     return count;
+}
+
+mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *result)
+{
+    mj_id pairs[8];
+    mj_size num_pairs = mj_pairs(hand, pairs);
+
+    mj_size const num_closed = MJ_MAX_TRIPLES_IN_HAND - open.size;
+    mj_triple triple_buffer[MAX_CAPACITY], combo_buffer[MAX_CAPACITY];
+    mj_hand tmp_hand;
+
+    mj_size num_wins = 0;
+
+    for (mj_size i = 0; i < num_pairs; ++i)
+    {
+        mj_size pair_loc;
+        memcpy(tmp_hand.tiles, hand.tiles, sizeof(mj_tile) * hand.size);
+        for (pair_loc = 0; MJ_ID_128(tmp_hand.tiles[pair_loc]) != pairs[i]; ++pair_loc)
+        {;}
+        
+        tmp_hand.tiles[pair_loc] = MJ_INVALID_TILE;
+        tmp_hand.tiles[pair_loc+1] = MJ_INVALID_TILE;
+        
+        tmp_hand.size = mj_clean_hand(tmp_hand.tiles, hand.size, NULL);
+
+        mj_size num_triples = mj_triples(tmp_hand, triple_buffer, MAX_CAPACITY);
+        mj_size num_combos = mj_n_triples(tmp_hand, triple_buffer, num_triples, combo_buffer, num_closed);
+
+#if _DEBUG_LEVEL > 0
+        assert(num_combos <= MAX_CAPACITY);
+#endif
+
+#if _DEBUG_LEVEL > 2
+        LOG_DEBUG("%d combos for pair %d\n", num_combos, pairs[i]);
+        for (mj_size j = 0; j < num_combos; ++j)
+        {
+            mj_print_triple(combo_buffer[j]);
+            LOG_DEBUG("\n");
+        }
+#endif
+        if (num_combos == 0)
+            continue;
+
+        for (mj_size j = 0; j < num_combos / num_closed; ++j)
+        {
+            mj_meld *prev = result + num_wins - 1;
+            mj_meld *cur = result + num_wins;
+            
+            memcpy(cur->melds, combo_buffer + j*num_closed, sizeof(mj_triple) * num_closed);
+            
+            if (j == 0)
+            {
+                for (mj_size l = 0; l < open.size; ++l)
+                {
+                    cur->melds[num_closed+l] = open.melds[l];
+                }
+                cur->size = num_closed + open.size;
+                ++num_wins;
+                LOG_DEBUG("size: %d\n", cur->size);
+            }
+            else
+            {
+                for (mj_size k = 0; ; ++k)
+                {
+                    if (k == num_closed)
+                    {
+                        break;
+                    }
+                    if (MJ_TRIPLE_WEAK_EQ(cur->melds[k], prev->melds[k]) == MJ_FALSE)
+                    {
+                        for (mj_size l = 0; l < open.size; ++l)
+                        {
+                            cur->melds[num_closed+l] = open.melds[l];
+                        }
+                        cur->size = num_closed + open.size;
+                        ++num_wins;
+                        LOG_DEBUG("size: %d\n", cur->size);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    return num_wins;
 }
 
 
@@ -425,10 +518,42 @@ void mj_print_pair(mj_pair pair)
 void mj_print_triple(mj_triple triple)
 {
 #if _DEBUG_LEVEL > 0
-    printf("[");
+    switch(MJ_IS_OPEN(triple))
+    {
+        case MJ_TRUE:
+            printf("{");
+            break;
+        case MJ_FALSE:
+            printf("[");
+            break;
+        case MJ_MAYBE:
+            printf("<");
+            break;
+    }
     mj_print_tile(MJ_FIRST(triple));
     mj_print_tile(MJ_SECOND(triple));
     mj_print_tile(MJ_THIRD(triple));
-    printf("]");
+    switch(MJ_IS_OPEN(triple))
+    {
+        case MJ_TRUE:
+            printf("}");
+            break;
+        case MJ_FALSE:
+            printf("]");
+            break;
+        case MJ_MAYBE:
+            printf(">");
+            break;
+    }
+#endif
+}
+
+void mj_print_meld(mj_meld meld)
+{
+#if _DEBUG_LEVEL > 0
+    printf("("); 
+    for (mj_size i = 0; i < meld.size; ++i)
+        mj_print_triple(meld.melds[i]);
+    printf(")");
 #endif
 }
