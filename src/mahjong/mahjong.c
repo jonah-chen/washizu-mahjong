@@ -5,6 +5,35 @@
 #define MJ_MAX_HAND_SIZE 14
 #define MJ_MAX_TRIPLES_IN_HAND 4
 
+static char const mj_suit_strings[5] = {'m','p','s','w','d'}; 
+
+mj_size mj_parse(char const *str, mj_tile *tiles)
+{
+    mj_size size = 0;
+    int cur_suit = 0, cur_sub;
+    for (; *str && size < MJ_MAX_HAND_SIZE; str++)
+    {
+        if (*str < '1' || *str > '9')
+        {
+            if (mj_suit_strings[cur_suit++] != *str)
+                return 0;
+            else if (cur_suit == 5)
+                return size;
+        }
+        else 
+        {
+            if (size && tiles[size-1] == MJ_TILE(cur_suit, *str - '1', cur_sub))
+                cur_sub++;
+            else
+                cur_sub = 0;
+
+            tiles[size++] = MJ_TILE(cur_suit, *str - '1', cur_sub);
+        }
+    }
+
+    return size;
+}
+
 void mj_sort_hand(mj_tile *hand, mj_size size)
 {
     mj_size i, j;
@@ -135,7 +164,6 @@ mj_size mj_triples(mj_tile *hand, mj_size size, mj_triple *result, mj_size capac
                     if (MJ_NUMBER(hand[k]) == MJ_NUMBER(hand[j]) + 1)
                     {
                         result[triples++] = MJ_TRIPLE(hand[i], hand[j], hand[k]);
-                        break;
                     }
                 }
             }
@@ -257,7 +285,7 @@ static mj_hand_array *dfs(mj_tile *hand, mj_size size, mj_triple *triples, mj_si
 
     mj_hand_array *children = NULL;
 
-    for (mj_size i = 0; i < num_triples; ++i)
+    for (mj_size i = 0; i <= num_triples - n; ++i)
     {
         mj_tile tmp_hand[MJ_MAX_HAND_SIZE];
         mj_size tmp_size = mj_clean_hand(hand, size, tmp_hand);
@@ -381,7 +409,6 @@ void mj_print_hand(mj_tile *hand, mj_size size)
     for (mj_size i = 0; i < size; ++i)
     {
         mj_print_tile(hand[i]);
-        printf(" ");
     }
     printf("\n");
 #endif
@@ -391,7 +418,6 @@ void mj_print_pair(mj_pair pair)
 #if _DEBUG_LEVEL > 0
     printf("[");
     mj_print_tile(MJ_FIRST(pair));
-    printf(" ");
     mj_print_tile(MJ_SECOND(pair));
     printf("]");
 #endif
@@ -402,9 +428,7 @@ void mj_print_triple(mj_triple triple)
 #if _DEBUG_LEVEL > 0
     printf("[");
     mj_print_tile(MJ_FIRST(triple));
-    printf(" ");
     mj_print_tile(MJ_SECOND(triple));
-    printf(" ");
     mj_print_tile(MJ_THIRD(triple));
     printf("]");
 #endif
