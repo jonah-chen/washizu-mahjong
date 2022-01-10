@@ -48,8 +48,19 @@ typedef unsigned short mj_tile;
 #define MJ_SUIT(x) \
 (((x)>>6) & 0b111)
 
+#define MJ_CHARACTER 0
+#define MJ_CIRCLE 1
+#define MJ_BAMBOO 2
 #define MJ_WIND 3
 #define MJ_DRAGON 4
+
+#define MJ_GREEN 0
+#define MJ_RED 1
+#define MJ_WHITE 2
+#define MJ_EAST 0
+#define MJ_SOUTH 1
+#define MJ_WEST 2
+#define MJ_NORTH 3
 
 #define MJ_OPAQUE(x) \
 (((x) & 0b11)==0)
@@ -58,7 +69,7 @@ typedef unsigned short mj_tile;
 
 typedef signed char mj_id;
 
-#define MJ_ID_128(x) \ 
+#define MJ_ID_128(x) \
 (mj_id)(((x)>>2) & 0xff)
 
 typedef unsigned int mj_pair;
@@ -85,7 +96,7 @@ typedef unsigned short mj_size;
 
 void mj_sort_hand(mj_tile *hand, mj_size size);
 
-mj_size mj_pairs(mj_tile *hand, mj_size size, mj_pair *result);
+mj_size mj_pairs(mj_tile *hand, mj_size size, mj_id *result);
 
 mj_bool mj_pong_available(mj_tile *hand, mj_size size, mj_tile const tile);
 
@@ -95,4 +106,11 @@ mj_size mj_chow_available(mj_tile *hand, mj_size size, mj_tile const tile, mj_pa
 
 mj_size mj_triples(mj_tile *hand, mj_size size, mj_triple *result, mj_size capacity);
 
+mj_size mj_n_triples(mj_tile *hand, mj_size size, mj_triple *triples, mj_size num_triples, mj_triple *result, mj_size n);
 
+#if _DEBUG_LEVEL > 0
+void mj_print_tile(mj_tile tile);
+void mj_print_pair(mj_pair pair);
+void mj_print_triple(mj_triple triple);
+void mj_print_hand(mj_tile *hand, mj_size size);
+#endif

@@ -111,15 +111,14 @@ mj_size mj_triples(mj_tile *hand, mj_size size, mj_triple *result, mj_size capac
             result[triples++] = MJ_TRIPLE(hand[i], hand[i+1], hand[i+2]);
             j = i + 3;
         }
-        else if (MJ_SUIT(hand[i])==MJ_WIND || MJ_SUIT(hand[i])==MJ_DRAGON ||
-                 MJ_NUMBER1(hand[i]) > 7)
-        {
-            continue;
-        }
         else 
         {
             j = i + 1;
         }
+
+        if (MJ_SUIT(hand[i])==MJ_WIND || MJ_SUIT(hand[i])==MJ_DRAGON ||
+            MJ_NUMBER1(hand[i]) > 7)
+            continue;
 
         for (; j < size-1 && triples < capacity && 
                MJ_SUIT(hand[i]) == MJ_SUIT(hand[j]) &&
@@ -151,3 +150,61 @@ mj_size mj_triples(mj_tile *hand, mj_size size, mj_triple *result, mj_size capac
 
     return triples;
 }
+
+/* Hand cannot have any wind or dragon tiles */
+static mj_size mj_n_triples_recur(mj_tile *hand, mj_size *size, mj_triple *triples, mj_size n_triples, mj_triple *result, mj_size n)
+{
+
+}
+
+mj_size mj_n_triples(mj_tile *hand, mj_size size, mj_triple *triples, mj_size num_triples, mj_triple *result, mj_size n)
+{
+    mj_triple perm_triples[4];
+    mj_size perms = 0, i = num_triples - 1;
+    for (; i >= 0; --i)
+    {
+        if (MJ_SUIT(MJ_FIRST(triples[i])) == MJ_WIND || MJ_SUIT(MJ_FIRST(triples[i])) == MJ_DRAGON)
+        {
+            perm_triples[perms++] = triples[i];
+        }
+        
+    }
+}
+
+#if _DEBUG_LEVEL > 0
+void mj_print_tile(mj_tile tile)
+{
+    char suit[5] = {'m', 'p', 's', 'w', 'd'};
+    printf("%d%c", MJ_NUMBER1(tile), suit[MJ_SUIT(tile)]);
+}
+void mj_print_hand(mj_tile *hand, mj_size size)
+{
+    for (mj_size i = 0; i < size; ++i)
+    {
+        mj_print_tile(hand[i]);
+        printf(" ");
+    }
+    printf("\n");
+}
+
+void mj_print_pair(mj_pair pair)
+{
+    printf("[");
+    mj_print_tile(MJ_FIRST(pair));
+    printf(" ");
+    mj_print_tile(MJ_SECOND(pair));
+    printf("]");
+}
+
+void mj_print_triple(mj_triple triple)
+{
+    printf("[");
+    mj_print_tile(MJ_FIRST(triple));
+    printf(" ");
+    mj_print_tile(MJ_SECOND(triple));
+    printf(" ");
+    mj_print_tile(MJ_THIRD(triple));
+    printf("]");
+}
+
+#endif
