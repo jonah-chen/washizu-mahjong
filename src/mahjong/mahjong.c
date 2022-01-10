@@ -2,74 +2,72 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MJ_MAX_HAND_SIZE 14
-#define MJ_MAX_TRIPLES_IN_HAND 4
-
-static char const mj_suit_strings[5] = {'m','p','s','w','d'}; 
-
-mj_size mj_parse(char const *str, mj_tile *tiles)
+void mj_parse(char const *str, mj_hand *hand)
 {
-    mj_size size = 0;
+    static char const mj_suit_strings[5] = {'m','p','s','w','d'}; 
+
+    hand->size = 0;
     int cur_suit = 0, cur_sub;
-    for (; *str && size < MJ_MAX_HAND_SIZE; str++)
+    for (; *str && hand->size < MJ_MAX_HAND_SIZE; str++)
     {
         if (*str < '1' || *str > '9')
         {
             if (mj_suit_strings[cur_suit++] != *str)
-                return 0;
+            {
+                hand->size = 0;
+                return;
+            }
             else if (cur_suit == 5)
-                return size;
+                return;
         }
         else 
         {
-            if (size && tiles[size-1] == MJ_TILE(cur_suit, *str - '1', cur_sub))
+            if (hand->size && hand->tiles[hand->size-1] == MJ_TILE(cur_suit, *str - '1', cur_sub))
                 cur_sub++;
             else
                 cur_sub = 0;
 
-            tiles[size++] = MJ_TILE(cur_suit, *str - '1', cur_sub);
+            hand->tiles[hand->size++] = MJ_TILE(cur_suit, *str - '1', cur_sub);
         }
     }
-
-    return size;
 }
 
-void mj_sort_hand(mj_tile *hand, mj_size size)
+void mj_sort_hand(mj_hand *hand)
 {
     mj_size i, j;
     mj_tile tmp;
-    for (i = 1; i < size; ++i)
+    for (i = 1; i < hand->size; ++i)
     {
-        for (j = i; j > 0 && hand[j-1] > hand[j]; --j)
+        for (j = i; j > 0 && hand->tiles[j-1] > hand->tiles[j]; --j)
         {
-            tmp = hand[j];
-            hand[j] = hand[j-1];
-            hand[j-1] = tmp;
+            tmp = hand->tiles[j];
+            hand->tiles[j] = hand->tiles[j-1];
+            hand->tiles[j-1] = tmp;
         }
     }
 }
 
-mj_size mj_pairs(mj_tile *hand, mj_size size, mj_id *result)
+mj_size mj_pairs(mj_hand hand, mj_id *result)
 {
     mj_size i, pairs = 0;
     
-    for (i = 0; i < size-1; ++i)
+    for (i = 0; i < hand.size-1; ++i)
     {
-        if (MJ_ID_128(hand[i]) == MJ_ID_128(hand[i+1]))
+        if (MJ_ID_128(hand.tiles[i]) == MJ_ID_128(hand.tiles[i+1]))
         {
-            result[pairs++] = MJ_ID_128(hand[i++]);
+            result[pairs++] = MJ_ID_128(hand.tiles[i++]);
         }
     }
     LOG_DEBUG("pairs: %d\n", pairs);
     return pairs;
 }
 
-mj_bool mj_pong_available(mj_tile *hand, mj_size size, mj_tile const tile)
+mj_bool mj_pong_available(mj_hand hand, mj_tile const tile)
 {
-    for (mj_size i = 0; i < size-1 && MJ_ID_128(hand[i]) <= MJ_ID_128(tile); ++i)
+    for (mj_size i = 0; i < hand.size-1 && MJ_ID_128(hand.tiles[i]) <= MJ_ID_128(tile); ++i)
     {
-        if (MJ_ID_128(hand[i]) == MJ_ID_128(hand[i+1]) &&
-            MJ_ID_128(hand[i]) == MJ_ID_128(tile))
+        if (MJ_ID_128(hand.tiles[i]) == MJ_ID_128(hand.tiles[i+1]) &&
+            MJ_ID_128(hand.tiles[i]) == MJ_ID_128(tile))
         {
             return MJ_TRUE;
         }
@@ -77,13 +75,13 @@ mj_bool mj_pong_available(mj_tile *hand, mj_size size, mj_tile const tile)
     return MJ_FALSE;
 }
 
-mj_bool mj_kong_available(mj_tile *hand, mj_size size, mj_tile const tile)
+mj_bool mj_kong_available(mj_hand hand, mj_tile const tile)
 {
-    for (mj_size i = 0; i < size-2 && MJ_ID_128(hand[i]) <= MJ_ID_128(tile); ++i)
+    for (mj_size i = 0; i < hand.size-2 && MJ_ID_128(hand.tiles[i]) <= MJ_ID_128(tile); ++i)
     {
-        if (MJ_ID_128(hand[i]) == MJ_ID_128(hand[i+1]) &&
-            MJ_ID_128(hand[i]) == MJ_ID_128(hand[i+2]) &&
-            MJ_ID_128(hand[i]) == MJ_ID_128(tile))
+        if (MJ_ID_128(hand.tiles[i]) == MJ_ID_128(hand.tiles[i+1]) &&
+            MJ_ID_128(hand.tiles[i]) == MJ_ID_128(hand.tiles[i+2]) &&
+            MJ_ID_128(hand.tiles[i]) == MJ_ID_128(tile))
         {
             return MJ_TRUE;
         }
@@ -91,7 +89,7 @@ mj_bool mj_kong_available(mj_tile *hand, mj_size size, mj_tile const tile)
     return MJ_FALSE;
 }
 
-mj_size mj_chow_available(mj_tile *hand, mj_size size, mj_tile const tile, mj_pair *chow_tiles)
+mj_size mj_chow_available(mj_hand hand, mj_tile const tile, mj_pair *chow_tiles)
 {
     if (MJ_SUIT(tile) == MJ_WIND || MJ_SUIT(tile) == MJ_DRAGON)
     {
@@ -100,12 +98,12 @@ mj_size mj_chow_available(mj_tile *hand, mj_size size, mj_tile const tile, mj_pa
 
     mj_size i, j, chows = 0;
 
-    for (i = 0; i < size-1; ++i)
+    for (i = 0; i < hand.size-1; ++i)
     {
         int difference; 
-        if (MJ_SUIT(hand[i]) == MJ_SUIT(tile))
+        if (MJ_SUIT(hand.tiles[i]) == MJ_SUIT(tile))
         {
-            switch (MJ_NUMBER(hand[i]) - MJ_NUMBER(tile))
+            switch (MJ_NUMBER(hand.tiles[i]) - MJ_NUMBER(tile))
             {
                 case -2: difference = -1; break;
                 case -1: difference = 1; break;
@@ -114,14 +112,14 @@ mj_size mj_chow_available(mj_tile *hand, mj_size size, mj_tile const tile, mj_pa
             }
 
             for (j = i+1; 
-                 j < size && 
-                 MJ_SUIT(hand[j]) == MJ_SUIT(tile) && 
-                 MJ_NUMBER(hand[j])>MJ_NUMBER(tile)+difference;
+                 j < hand.size && 
+                 MJ_SUIT(hand.tiles[j]) == MJ_SUIT(tile) && 
+                 MJ_NUMBER(hand.tiles[j])>MJ_NUMBER(tile)+difference;
                  ++j)
             {
-                if (MJ_NUMBER(hand[j]) == MJ_NUMBER(tile) + difference)
+                if (MJ_NUMBER(hand.tiles[j]) == MJ_NUMBER(tile) + difference)
                 {
-                    chow_tiles[chows++] = MJ_PAIR(hand[i], hand[j]);
+                    chow_tiles[chows++] = MJ_PAIR(hand.tiles[i], hand.tiles[j]);
                 }
             }
         }
@@ -130,16 +128,16 @@ mj_size mj_chow_available(mj_tile *hand, mj_size size, mj_tile const tile, mj_pa
     return chows;
 }
 
-mj_size mj_triples(mj_tile *hand, mj_size size, mj_triple *result, mj_size capacity)
+mj_size mj_triples(mj_hand hand, mj_triple *result, mj_size capacity)
 {
     mj_size i, j, k, triples = 0;
     
-    for (i = 0; i < size-2 && triples < capacity; ++i)
+    for (i = 0; i < hand.size-2 && triples < capacity; ++i)
     {
-        if (MJ_ID_128(hand[i]) == MJ_ID_128(hand[i+1]) &&
-            MJ_ID_128(hand[i]) == MJ_ID_128(hand[i+2]))
+        if (MJ_ID_128(hand.tiles[i]) == MJ_ID_128(hand.tiles[i+1]) &&
+            MJ_ID_128(hand.tiles[i]) == MJ_ID_128(hand.tiles[i+2]))
         {
-            result[triples++] = MJ_TRIPLE(hand[i], hand[i+1], hand[i+2]);
+            result[triples++] = MJ_TRIPLE(hand.tiles[i], hand.tiles[i+1], hand.tiles[i+2]);
             j = i + 3;
         }
         else 
@@ -147,23 +145,23 @@ mj_size mj_triples(mj_tile *hand, mj_size size, mj_triple *result, mj_size capac
             j = i + 1;
         }
 
-        if (MJ_SUIT(hand[i])==MJ_WIND || MJ_SUIT(hand[i])==MJ_DRAGON ||
-            MJ_NUMBER1(hand[i]) > 7)
+        if (MJ_SUIT(hand.tiles[i])==MJ_WIND || MJ_SUIT(hand.tiles[i])==MJ_DRAGON ||
+            MJ_NUMBER1(hand.tiles[i]) > 7)
             continue;
 
-        for (; j < size-1 && triples < capacity && 
-               MJ_SUIT(hand[i]) == MJ_SUIT(hand[j]) &&
-               MJ_NUMBER(hand[j]) - MJ_NUMBER(hand[i]) <= 1; ++j)
+        for (; j < hand.size-1 && triples < capacity && 
+               MJ_SUIT(hand.tiles[i]) == MJ_SUIT(hand.tiles[j]) &&
+               MJ_NUMBER(hand.tiles[j]) - MJ_NUMBER(hand.tiles[i]) <= 1; ++j)
         {
-            if (MJ_NUMBER(hand[j]) == MJ_NUMBER(hand[i]) + 1)
+            if (MJ_NUMBER(hand.tiles[j]) == MJ_NUMBER(hand.tiles[i]) + 1)
             {
-                for (k = j + 1; k < size && triples < capacity && 
-                       MJ_SUIT(hand[i]) == MJ_SUIT(hand[k]) &&
-                       MJ_NUMBER(hand[k]) - MJ_NUMBER(hand[j]) <= 1; ++k)
+                for (k = j + 1; k < hand.size && triples < capacity && 
+                       MJ_SUIT(hand.tiles[i]) == MJ_SUIT(hand.tiles[k]) &&
+                       MJ_NUMBER(hand.tiles[k]) - MJ_NUMBER(hand.tiles[j]) <= 1; ++k)
                 {
-                    if (MJ_NUMBER(hand[k]) == MJ_NUMBER(hand[j]) + 1)
+                    if (MJ_NUMBER(hand.tiles[k]) == MJ_NUMBER(hand.tiles[j]) + 1)
                     {
-                        result[triples++] = MJ_TRIPLE(hand[i], hand[j], hand[k]);
+                        result[triples++] = MJ_TRIPLE(hand.tiles[i], hand.tiles[j], hand.tiles[k]);
                     }
                 }
             }
@@ -274,7 +272,7 @@ static void mj_hand_array_destroy(mj_hand_array *arr)
 }
 
 /* return how many */
-static mj_hand_array *dfs(mj_tile *hand, mj_size size, mj_triple *triples, mj_size num_triples, mj_size n)
+static mj_hand_array *dfs(mj_tile *tiles, mj_size size, mj_triple *triples, mj_size num_triples, mj_size n)
 {
     if (n == 0)
     {
@@ -287,12 +285,12 @@ static mj_hand_array *dfs(mj_tile *hand, mj_size size, mj_triple *triples, mj_si
 
     for (mj_size i = 0; i <= num_triples - n; ++i)
     {
-        mj_tile tmp_hand[MJ_MAX_HAND_SIZE];
-        mj_size tmp_size = mj_clean_hand(hand, size, tmp_hand);
-        mj_size next = mj_traverse_tree(tmp_hand, 0, tmp_size, triples[i]);
+        mj_tile tmp_tiles[MJ_MAX_HAND_SIZE];
+        mj_size tmp_size = mj_clean_hand(tiles, size, tmp_tiles);
+        mj_size next = mj_traverse_tree(tmp_tiles, 0, tmp_size, triples[i]);
         if (next != 0)
         {
-            mj_hand_array *found = dfs(tmp_hand, tmp_size, triples+i+1, num_triples-i-1, n-1);
+            mj_hand_array *found = dfs(tmp_tiles, tmp_size, triples+i+1, num_triples-i-1, n-1);
             // if my thing returned 1, then there is 1 solution and i store it in result
             if (found)
             {
@@ -338,7 +336,7 @@ static void mj_add_arrays(mj_hand_array *root, mj_size n, mj_triple *result)
 }
 
 
-mj_size mj_n_triples(mj_tile *hand, mj_size size, mj_triple *triples, mj_size num_triples, mj_triple *result, mj_size n)
+mj_size mj_n_triples(mj_hand hand, mj_triple *triples, mj_size num_triples, mj_triple *result, mj_size n)
 {
     if (num_triples < n)
     {
@@ -347,9 +345,10 @@ mj_size mj_n_triples(mj_tile *hand, mj_size size, mj_triple *triples, mj_size nu
 
     mj_triple perm_triples[MJ_MAX_TRIPLES_IN_HAND];
 
-    mj_tile clean_hand[MJ_MAX_HAND_SIZE]; // maybe not needed
-
-    mj_size clean_hand_size = mj_clean_hand(hand, size, clean_hand);
+#if _DEBUG_LEVEL > 0
+    if (n > MJ_MAX_TRIPLES_IN_HAND) 
+        LOG_CRIT("n=%d is greater than the maximum triples in hand of %d\n", n, MJ_MAX_TRIPLES_IN_HAND);
+#endif
 
     mj_size perms = 0; /* number of permenent triples */
 
@@ -377,13 +376,13 @@ mj_size mj_n_triples(mj_tile *hand, mj_size size, mj_triple *triples, mj_size nu
     }
 
     /* Now we remove all winds and dragons from the hand, start at the end of the array */
-    while(MJ_SUIT(hand[size - 1])==MJ_WIND || MJ_SUIT(hand[size - 1])==MJ_DRAGON)
+    while(MJ_SUIT(hand.tiles[hand.size - 1])==MJ_WIND || MJ_SUIT(hand.tiles[hand.size - 1])==MJ_DRAGON)
     {
-        --size;
+        --hand.size;
     }
 
     /* We call the rest of the hand recursively */
-    mj_hand_array *children = dfs(hand, size, triples, num_triples, n-perms);
+    mj_hand_array *children = dfs(hand.tiles, hand.size, triples, num_triples, n-perms);
     mj_add_perms(perm_triples, perms, result, children, n);
     mj_add_arrays(children, n, result);
 
@@ -403,12 +402,12 @@ void mj_print_tile(mj_tile tile)
     printf("%d%c%c", MJ_NUMBER1(tile), suit[MJ_SUIT(tile)], delim[(tile&0b11)]);
 #endif
 }
-void mj_print_hand(mj_tile *hand, mj_size size)
+void mj_print_hand(mj_hand hand)
 {
 #if _DEBUG_LEVEL > 0
-    for (mj_size i = 0; i < size; ++i)
+    for (mj_size i = 0; i < hand.size; ++i)
     {
-        mj_print_tile(hand[i]);
+        mj_print_tile(hand.tiles[i]);
     }
     printf("\n");
 #endif
