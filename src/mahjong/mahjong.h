@@ -2,7 +2,7 @@
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
-#define _DEBUG_LEVEL 4
+#define _DEBUG_LEVEL 10
 
 #if _DEBUG_LEVEL > 0
 #include <stdio.h>
@@ -32,12 +32,16 @@
 
 typedef unsigned char mj_bool;
 #define MJ_TRUE (mj_bool)2
+#define MJ_MAYBE (mj_bool)1
 #define MJ_FALSE (mj_bool)0
 
 typedef unsigned short mj_tile;
 
 #define MJ_TILE(suit,number,sub) \
-((sub)|(number<<2)|(suit<<6))
+((sub)|((number)<<2)|((suit)<<6))
+
+#define MJ_128_TILE(suit,number) \
+((number)|(suit<<4))
 
 #define MJ_NUMBER(x) \
 (((x)>>2) & 0b1111)
@@ -94,6 +98,11 @@ typedef unsigned int mj_triple;
 
 typedef unsigned short mj_size;
 
+/**
+ * Sort
+ * @param hand
+ * @param size
+ */
 void mj_sort_hand(mj_tile *hand, mj_size size);
 
 mj_size mj_pairs(mj_tile *hand, mj_size size, mj_id *result);
@@ -108,9 +117,9 @@ mj_size mj_triples(mj_tile *hand, mj_size size, mj_triple *result, mj_size capac
 
 mj_size mj_n_triples(mj_tile *hand, mj_size size, mj_triple *triples, mj_size num_triples, mj_triple *result, mj_size n);
 
-#if _DEBUG_LEVEL > 0
+
 void mj_print_tile(mj_tile tile);
 void mj_print_pair(mj_pair pair);
 void mj_print_triple(mj_triple triple);
 void mj_print_hand(mj_tile *hand, mj_size size);
-#endif
+
