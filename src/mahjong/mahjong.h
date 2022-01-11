@@ -75,6 +75,9 @@ typedef unsigned short mj_tile;
 #define MJ_OPAQUE(x) \
 (((x) & 0b11)==0)
 
+#define MJ_IS_HONOR(x) \
+(((x)>=MJ_TILE(MJ_WIND,0,0))?MJ_TRUE:MJ_FALSE)
+
 #define MJ_INVALID_TILE (mj_tile)(-1)
 
 /* Tile identifier */
@@ -98,7 +101,7 @@ typedef unsigned int mj_triple;
 #define MJ_OPEN_TRIPLE(x) \
 ((x)|(1u<<31))
 
-#define MJ_CLOSE_KONG_TRIPLE(x) \
+#define MJ_KONG_TRIPLE(x) \
 ((x)|(1u<<30))
 
 
@@ -112,7 +115,10 @@ typedef unsigned int mj_triple;
 (mj_tile)(((x)>>18)& 0b111111111)
 
 #define MJ_IS_OPEN(x) \
-(mj_bool)((x>>30)&0b11)
+(mj_bool)(((x)>>30)&2)
+
+#define MJ_IS_KONG(x) \
+(mj_bool)(((x)>>29)&2)
 
 #define MJ_TRIPLE_WEAK_EQ(x,y) \
 (((x)|3|3<<9|3<<18)==((y)|3|3<<9|3<<18))
