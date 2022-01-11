@@ -57,20 +57,6 @@ typedef mj_bool(*mj_yaku_check_special)(mj_hand const *);
  * 
  */
 
-// void mj_ipeikou(mj_meld const *melds);
-// void mj_tanyou(mj_meld const *melds, mj_pair const *pair);
-// void mj_yakuhai(mj_meld const *melds, int prevailing_wind, int seat_wind);
-// void mj_chanta(mj_meld const *melds, mj_pair const *pair);
-// void mj_sanshoku(mj_meld const *melds);
-// void mj_ittsu(mj_meld const *melds);
-// void mj_toitoi(mj_meld const *melds);
-// void mj_sanankou(mj_meld const *melds, mj_);
-
-
-
-
-
-
 // /* this one should be called with meld and pair being NULL */
 // mj_bool mj_kokushi (mj_hand const *hand);
 

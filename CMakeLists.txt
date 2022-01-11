@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 project(Washizu)
 
 set(CMAKE_C_STANDARD 11)
+set(CMAKE_BUILD_TYPE Debug)
 
 include_directories(src/)
 

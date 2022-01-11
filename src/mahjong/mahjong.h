@@ -30,7 +30,36 @@
 #define LOG_DEBUG(...)
 #endif
 
+/* "Boolean" value with a maybe */
+typedef unsigned char mj_bool;
+/* Tile bit structure */
+typedef unsigned short mj_tile;
+/* Tile identifier */
+typedef signed char mj_id;
+/* Pair of tiles (bits again) */
+typedef unsigned int mj_pair;
+/* Triplet of tiles (bits again) */
+typedef unsigned int mj_triple;
+/* Size (size_t is too wide) */
+typedef unsigned short mj_size;
+/* Mahjong hand */
+#define MJ_MAX_HAND_SIZE 14
+typedef struct mj_hand {
+    mj_tile tiles[MJ_MAX_HAND_SIZE];
+    mj_size size;
+} mj_hand;
+/* Melds */
+#define MJ_MAX_TRIPLES_IN_HAND 4
+typedef struct mj_meld {
+    mj_triple melds[MJ_MAX_TRIPLES_IN_HAND];
+    mj_size size;
+} mj_meld;
+
 /* Constants */
+#define MJ_TRUE (mj_bool)2
+#define MJ_MAYBE (mj_bool)1
+#define MJ_FALSE (mj_bool)0
+
 #define MJ_CHARACTER 0
 #define MJ_CIRCLE 1
 #define MJ_BAMBOO 2
@@ -45,55 +74,17 @@
 #define MJ_WEST 2
 #define MJ_NORTH 3
 
-#define MJ_MAX_HAND_SIZE 14
-#define MJ_MAX_TRIPLES_IN_HAND 4
+#define MJ_INVALID_TILE (mj_tile)(-1)
 
-/* "Boolean" value with a maybe */
-typedef unsigned char mj_bool;
-#define MJ_TRUE (mj_bool)2
-#define MJ_MAYBE (mj_bool)1
-#define MJ_FALSE (mj_bool)0
-
-/* Tile bit structure */
-typedef unsigned short mj_tile;
-
+/* Construction Macros */
 #define MJ_TILE(suit,number,sub) \
 ((sub)|((number)<<2)|((suit)<<6))
 
 #define MJ_128_TILE(suit,number) \
 ((number)|(suit<<4))
 
-#define MJ_NUMBER(x) \
-(((x)>>2) & 0b1111)
-
-#define MJ_NUMBER1(x) \
-(MJ_NUMBER(x)+1)
-
-#define MJ_SUIT(x) \
-(((x)>>6) & 0b111)
-
-#define MJ_OPAQUE(x) \
-(((x) & 0b11)==0)
-
-#define MJ_IS_HONOR(x) \
-(((x)>=MJ_TILE(MJ_WIND,0,0))?MJ_TRUE:MJ_FALSE)
-
-#define MJ_INVALID_TILE (mj_tile)(-1)
-
-/* Tile identifier */
-typedef signed char mj_id;
-
-#define MJ_ID_128(x) \
-(mj_id)(((x)>>2) & 0xff)
-
-/* Pair of tiles (bits again) */
-typedef unsigned int mj_pair;
-
 #define MJ_PAIR(x,y) \
 (mj_pair)(((y)<<9)|(x))
-
-/* Triplet of tiles (bits again) */
-typedef unsigned int mj_triple;
 
 #define MJ_TRIPLE(x,y,z) \
 (mj_triple)(((z)<<18)|((y)<<9)|(x))
@@ -105,6 +96,19 @@ typedef unsigned int mj_triple;
 ((x)|(1u<<30))
 
 
+/* Field Access Macros */
+#define MJ_ID_128(x) \
+(mj_id)(((x)>>2) & 0xff)
+
+#define MJ_NUMBER(x) \
+(((x)>>2) & 0b1111)
+
+#define MJ_NUMBER1(x) \
+(MJ_NUMBER(x)+1)
+
+#define MJ_SUIT(x) \
+(((x)>>6) & 0b111)
+
 #define MJ_FIRST(x) \
 (mj_tile)((x) & 0b111111111)
 
@@ -113,6 +117,13 @@ typedef unsigned int mj_triple;
 
 #define MJ_THIRD(x) \
 (mj_tile)(((x)>>18)& 0b111111111)
+
+/* Checks */
+#define MJ_OPAQUE(x) \
+(((x) & 0b11)==0)
+
+#define MJ_IS_HONOR(x) \
+(((x)>=MJ_TILE(MJ_WIND,0,0))?MJ_TRUE:MJ_FALSE)
 
 #define MJ_IS_OPEN(x) \
 (mj_bool)(((x)>>30)&2)
@@ -123,20 +134,7 @@ typedef unsigned int mj_triple;
 #define MJ_TRIPLE_WEAK_EQ(x,y) \
 (((x)|3|3<<9|3<<18)==((y)|3|3<<9|3<<18))
 
-/* Size (size_t is too wide) */
-typedef unsigned short mj_size;
 
-/* Mahjong hand */
-typedef struct mj_hand {
-    mj_tile tiles[MJ_MAX_HAND_SIZE];
-    mj_size size;
-} mj_hand;
-
-/* Melds */
-typedef struct mj_meld {
-    mj_triple melds[MJ_MAX_TRIPLES_IN_HAND];
-    mj_size size;
-} mj_meld;
 
 /**
  * @brief Parse a string (of specified format) into a hand of tiles.
@@ -230,6 +228,15 @@ mj_size mj_triples(mj_hand hand, mj_triple *result, mj_size capacity);
  */
 mj_size mj_n_triples(mj_hand hand, mj_triple *triples, mj_size num_triples, mj_triple *result, mj_size n);
 
+/**
+ * @brief Check the winning combinations that a hand can form.
+ * 
+ * @param hand The hand to check.
+ * @param open The open melds the player has called.
+ * @param m_result The sets of 4 melds that the is formed.
+ * @param p_result The pair that the hand can form.
+ * @return The number of winning combinations found.
+ */
 mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *m_result, mj_pair *p_result);
 
 
@@ -238,4 +245,3 @@ void mj_print_pair(mj_pair pair);
 void mj_print_triple(mj_triple triple);
 void mj_print_hand(mj_hand hand);
 void mj_print_meld(mj_meld meld);
-

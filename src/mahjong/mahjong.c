@@ -180,7 +180,7 @@ mj_size mj_triples(mj_hand hand, mj_triple *result, mj_size capacity)
     return triples;
 }
 
-static mj_size mj_clean_hand(mj_tile *hand, mj_size size, mj_tile *output)
+static mj_size clean_hand(mj_tile *hand, mj_size size, mj_tile *output)
 {
     mj_size i = 0, j = 0;
 
@@ -239,7 +239,7 @@ typedef struct mj_hand_array
     mj_size count;      // number of elements that this branch can reach. Count should always be bigger than size.
 } mj_hand_array;
 
-static mj_hand_array *mj_hand_array_init()
+static mj_hand_array *array_init()
 {
     mj_hand_array *tree = malloc(sizeof(mj_hand_array));
     tree->array = NULL;
@@ -248,7 +248,7 @@ static mj_hand_array *mj_hand_array_init()
     return tree;
 }
 
-static void mj_hand_array_insert(mj_hand_array **arr, mj_tree_node node)
+static void array_insert(mj_hand_array **arr, mj_tree_node node)
 {
     if ((*arr)->size)
         (*arr)->array = realloc((*arr)->array, sizeof(mj_tree_node) * ((*arr)->size + 1));
@@ -259,14 +259,14 @@ static void mj_hand_array_insert(mj_hand_array **arr, mj_tree_node node)
     (*arr)->count += node.child->count;
 }
 
-static void mj_hand_array_destroy(mj_hand_array *arr)
+static void array_destroy(mj_hand_array *arr)
 {
     if (arr->array) // if this is not NULL, size should never be 0
     {
         for (mj_size i = 0; i < arr->size; ++i)
         {
             if (arr->array[i].child)
-                mj_hand_array_destroy(arr->array[i].child);
+                array_destroy(arr->array[i].child);
         }
         free(arr->array);
     }
@@ -278,7 +278,7 @@ static mj_hand_array *dfs(mj_tile *tiles, mj_size size, mj_triple *triples, mj_s
 {
     if (n == 0)
     {
-        mj_hand_array *res = mj_hand_array_init();
+        mj_hand_array *res = array_init();
         res->count = 1;
         return res;
     }
@@ -288,7 +288,7 @@ static mj_hand_array *dfs(mj_tile *tiles, mj_size size, mj_triple *triples, mj_s
     for (mj_size i = 0; i <= num_triples - n; ++i)
     {
         mj_tile tmp_tiles[MJ_MAX_HAND_SIZE];
-        mj_size tmp_size = mj_clean_hand(tiles, size, tmp_tiles);
+        mj_size tmp_size = clean_hand(tiles, size, tmp_tiles);
         mj_size next = mj_traverse_tree(tmp_tiles, 0, tmp_size, triples[i]);
         if (next != 0)
         {
@@ -297,9 +297,9 @@ static mj_hand_array *dfs(mj_tile *tiles, mj_size size, mj_triple *triples, mj_s
             if (found)
             {
                 if (!children)
-                    children = mj_hand_array_init();
+                    children = array_init();
                 mj_tree_node node = {triples[i], found};
-                mj_hand_array_insert(&children, node);
+                array_insert(&children, node);
 #if _DEBUG_LEVEL > 39
                 mj_print_triple(triples[i]);
                 LOG_DEBUG(" has %d children with depth %d\n", found->count, n);
@@ -396,7 +396,7 @@ mj_size mj_n_triples(mj_hand hand, mj_triple *triples, mj_size num_triples, mj_t
 
     mj_size count = n * children->count;
 
-    mj_hand_array_destroy(children);
+    array_destroy(children);
 
     return count;
 }
@@ -426,7 +426,7 @@ mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *m_result, mj_pair *p_res
         tmp_hand.tiles[pair_loc] = MJ_INVALID_TILE;
         tmp_hand.tiles[pair_loc+1] = MJ_INVALID_TILE;
         
-        tmp_hand.size = mj_clean_hand(tmp_hand.tiles, hand.size, NULL);
+        tmp_hand.size = clean_hand(tmp_hand.tiles, hand.size, NULL);
 
         mj_size num_triples = mj_triples(tmp_hand, triple_buffer, MAX_CAPACITY);
         mj_size num_combos = mj_n_triples(tmp_hand, triple_buffer, num_triples, combo_buffer, NUM_CLOSED_MELDS);
