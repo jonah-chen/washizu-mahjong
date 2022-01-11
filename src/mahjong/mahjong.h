@@ -224,7 +224,7 @@ mj_size mj_triples(mj_hand hand, mj_triple *result, mj_size capacity);
  */
 mj_size mj_n_triples(mj_hand hand, mj_triple *triples, mj_size num_triples, mj_triple *result, mj_size n);
 
-mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *result);
+mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *m_result, mj_pair *p_result);
 
 
 void mj_print_tile(mj_tile tile);

@@ -401,14 +401,16 @@ mj_size mj_n_triples(mj_hand hand, mj_triple *triples, mj_size num_triples, mj_t
     return count;
 }
 
-mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *result)
+mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *m_result, mj_pair *p_result)
 {
     mj_id pairs[8];
     mj_size num_pairs = mj_pairs(hand, pairs);
 
-    mj_size const num_closed = MJ_MAX_TRIPLES_IN_HAND - open.size;
-    mj_triple triple_buffer[MAX_CAPACITY], combo_buffer[MAX_CAPACITY];
+    mj_size const NUM_CLOSED_MELDS = MJ_MAX_TRIPLES_IN_HAND - open.size;
+    mj_triple triple_buffer[MAX_CAPACITY];
+    mj_triple combo_buffer[MAX_CAPACITY];
     mj_hand tmp_hand;
+    mj_pair cur_pair;
 
     mj_size num_wins = 0;
 
@@ -418,6 +420,8 @@ mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *result)
         memcpy(tmp_hand.tiles, hand.tiles, sizeof(mj_tile) * hand.size);
         for (pair_loc = 0; MJ_ID_128(tmp_hand.tiles[pair_loc]) != pairs[i]; ++pair_loc)
         {;}
+
+        cur_pair = MJ_PAIR(tmp_hand.tiles[pair_loc], tmp_hand.tiles[pair_loc+1]);
         
         tmp_hand.tiles[pair_loc] = MJ_INVALID_TILE;
         tmp_hand.tiles[pair_loc+1] = MJ_INVALID_TILE;
@@ -425,7 +429,7 @@ mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *result)
         tmp_hand.size = mj_clean_hand(tmp_hand.tiles, hand.size, NULL);
 
         mj_size num_triples = mj_triples(tmp_hand, triple_buffer, MAX_CAPACITY);
-        mj_size num_combos = mj_n_triples(tmp_hand, triple_buffer, num_triples, combo_buffer, num_closed);
+        mj_size num_combos = mj_n_triples(tmp_hand, triple_buffer, num_triples, combo_buffer, NUM_CLOSED_MELDS);
 
 #if _DEBUG_LEVEL > 0
         assert(num_combos <= MAX_CAPACITY);
@@ -442,47 +446,29 @@ mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *result)
         if (num_combos == 0)
             continue;
 
-        for (mj_size j = 0; j < num_combos / num_closed; ++j)
+        for (mj_size j = 0; j < num_combos / NUM_CLOSED_MELDS; ++j)
         {
-            mj_meld *prev = result + num_wins - 1;
-            mj_meld *cur = result + num_wins;
+            mj_meld *prev = m_result + num_wins - 1;
+            mj_meld *cur = m_result + num_wins;
             
-            memcpy(cur->melds, combo_buffer + j*num_closed, sizeof(mj_triple) * num_closed);
+            memcpy(cur->melds, combo_buffer + j*NUM_CLOSED_MELDS, sizeof(mj_triple) * NUM_CLOSED_MELDS);
             
-            if (j == 0)
+            for (mj_size k = 0; ; ++k)
             {
-                for (mj_size l = 0; l < open.size; ++l)
+                if (k == NUM_CLOSED_MELDS)
+                    break;
+                if (j == 0 || MJ_TRIPLE_WEAK_EQ(cur->melds[k], prev->melds[k]) == MJ_FALSE)
                 {
-                    cur->melds[num_closed+l] = open.melds[l];
-                }
-                cur->size = num_closed + open.size;
-                ++num_wins;
-                LOG_DEBUG("size: %d\n", cur->size);
-            }
-            else
-            {
-                for (mj_size k = 0; ; ++k)
-                {
-                    if (k == num_closed)
-                    {
-                        break;
-                    }
-                    if (MJ_TRIPLE_WEAK_EQ(cur->melds[k], prev->melds[k]) == MJ_FALSE)
-                    {
-                        for (mj_size l = 0; l < open.size; ++l)
-                        {
-                            cur->melds[num_closed+l] = open.melds[l];
-                        }
-                        cur->size = num_closed + open.size;
-                        ++num_wins;
-                        LOG_DEBUG("size: %d\n", cur->size);
-                        break;
-                    }
+                    for (mj_size l = 0; l < open.size; ++l)
+                        cur->melds[NUM_CLOSED_MELDS+l] = open.melds[l];
+                    cur->size = NUM_CLOSED_MELDS + open.size;
+                    p_result[num_wins++] = cur_pair;
+                    LOG_DEBUG("size: %d\n", cur->size);
+                    break;
                 }
             }
         }
     }
-
     return num_wins;
 }
 
