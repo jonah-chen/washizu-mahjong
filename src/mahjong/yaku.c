@@ -1,5 +1,15 @@
 #include "yaku.h"
 
+int mj_fu(mj_meld const *melds, mj_pair pair, mj_tile ron)
+{
+    int fu = MJ_BASE_FU;
+    for (mj_size i = 0; i < MJ_MAX_TRIPLES_IN_HAND; ++i)
+    {
+        
+    }
+}
+
+
 static mj_id const mj_guoshiwushuang[14] = {
     MJ_128_TILE(0, 0),
     MJ_128_TILE(0, 8),
@@ -29,15 +39,30 @@ static mj_id const mj_greens[6] = {
     MJ_128_TILE(MJ_DRAGON, MJ_GREEN)
 };
 
-mj_bool mj_kokushi(mj_hand hand, mj_triple *melds, mj_pair *pair)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+mj_bool mj_kokushi(mj_hand const *hand)
 {
     mj_size n_pair = 0;
     for (int i = 0; i < 13; i++) 
     {
-        if (hand.tiles[i] == hand.tiles[i+1])
+        if (hand->tiles[i] == hand->tiles[i+1])
             n_pair = 1;
 
-        if (hand.tiles[i+n_pair] != mj_guoshiwushuang[i]) 
+        if (hand->tiles[i+n_pair] != mj_guoshiwushuang[i]) 
             return MJ_FALSE;
     }
     return MJ_TRUE;
