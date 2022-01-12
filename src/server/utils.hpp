@@ -19,7 +19,7 @@
  * @return The return value of the function call, or if_timeout if the timeout occurs.
  */
 template<typename TimeType, typename ReturnType, typename Func, typename... Args>
-ReturnType timeout(TimeType timeout, Func function, ReturnType if_timeout, Args&&... args)
+ReturnType _timeout(TimeType timeout, Func function, ReturnType if_timeout, Args&&... args)
 {
     std::mutex mutex;
     std::condition_variable cv;
