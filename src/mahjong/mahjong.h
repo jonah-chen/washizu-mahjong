@@ -191,36 +191,6 @@ void mj_sort_hand(mj_hand *hand);
 mj_size mj_pairs(mj_hand hand, mj_id *result);
 
 /**
- * @brief Determine if a PONG call is valid on a specific tile.
- * 
- * @param hand The hand of the player calling PONG.
- * @param tile The tile that is called.
- * @return True if the PONG call is valid, false otherwise.
- */
-mj_bool mj_pong_available(mj_hand hand, mj_tile const tile);
-
-/**
- * @brief Determine if a KONG call is valid on a specific tile.
- * 
- * @param hand The hand of the player calling KONG.
- * @param tile The tile that is called.
- * @return True if the KONG call is valid, false otherwise.
- */
-mj_bool mj_kong_available(mj_hand hand, mj_tile const tile);
-
-/**
- * @brief Determine if a CHOW call is valid on a specific tile.
- * 
- * @param hand The hand of the player calling CHOW.
- * @param tile The tile that is called.
- * @param chow_tiles The different sets of 2 tiles that is able to 
- * chow the called tile (since there are more than 1 way to chow).
- * @return The number of different ways to chow the tile. If 0, the
- * call is invalid.
- */
-mj_size mj_chow_available(mj_hand hand, mj_tile const tile, mj_pair *chow_tiles);
-
-/**
  * @brief Find all possible triples that can be formed from the hand.
  * 
  * @note This includes repeat tiles. (i.e. if hand contains 3 of the same tile,
