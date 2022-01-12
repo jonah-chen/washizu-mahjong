@@ -138,7 +138,7 @@ static inline void three_identical(mj_meld const *melds)
     int second_number = MJ_NUMBER(melds->melds[1]);
 
     if (suits_seq[first_number]==0b111||suits_seq[second_number]==0b111)
-        yakus[MJ_YAKU_SANANKOU] = closed ? 2 : 1;
+        yakus[MJ_YAKU_SANSHOKU] = closed ? 2 : 1;
     else if (suits_set[first_number]==0b111||suits_set[second_number]==0b111)
         yakus[MJ_YAKU_SANSHOKU0] = 2;
 }
@@ -201,12 +201,12 @@ static inline void three_closed_sets(mj_meld const *melds)
     int sets = 0;
     for (mj_size i = 0; i < melds->size; ++i)
     {
-        if (MJ_IS_SET(melds->melds[i]) && !MJ_OPEN_TRIPLE(melds->melds[i]))
+        if (MJ_IS_SET(melds->melds[i]) && !MJ_IS_OPEN(melds->melds[i]))
         {
             ++sets;
         }
     }
-    if (sets == 3)
+    if (sets >= 3)
     {
         yakus[MJ_YAKU_SANANKOU] = 2;
     }
@@ -317,7 +317,7 @@ static void two_sequence(mj_meld const *melds)
 
 
 
-int mj_fu(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, mj_tile ron, mj_bool tsumo)
+int mj_fu(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, mj_tile ron, mj_bool tsumo, int prevailing_wind, int seat_wind)
 {
     unsigned short *_tmp = _yakus;
     yakus = _yakus;
@@ -326,10 +326,9 @@ int mj_fu(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, mj_tile ro
     for (mj_size i = 0; i < MJ_MAX_TRIPLES_IN_HAND; ++i) 
     {
         mj_triple triple = melds->melds[i];
-        if (MJ_FIRST(triple) == MJ_SECOND(triple)) // it is not a run
+        if (MJ_IS_SET(triple)) // it is not a run
         {
             int triple_points = 2;
-            mj_tile first_tile = MJ_FIRST(triple);
 
             /* Kong */
             if (MJ_IS_KONG(triple)==MJ_TRUE)
@@ -338,11 +337,11 @@ int mj_fu(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, mj_tile ro
             /* Closed */
             if (MJ_IS_OPEN(triple)==MJ_TRUE)
                 closed = MJ_FALSE;
-            else if (tsumo==MJ_TRUE || MJ_ID_128(ron)!= MJ_ID_128(first_tile))
+            else if (tsumo==MJ_TRUE || MJ_ID_128(ron)!= MJ_ID_128(triple))
                 triple_points <<= 1;
 
             /* Terminal or Honor */
-            if (MJ_IS_HONOR(first_tile)||MJ_NUMBER(first_tile)==0||MJ_NUMBER(first_tile)==8)
+            if (MJ_IS_HONOR(triple)||MJ_NUMBER(triple)==0||MJ_NUMBER(triple)==8)
                 triple_points <<= 1;
 
             fu += triple_points;
@@ -352,7 +351,9 @@ int mj_fu(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, mj_tile ro
             fu -= 2 /* 2 sided wait */;
     }
 
-    if (MJ_IS_HONOR(MJ_FIRST(pair)))
+    if (MJ_SUIT(pair)==MJ_DRAGON || 
+        MJ_ID_128(pair)==MJ_128_TILE(MJ_WIND, seat_wind) || 
+        MJ_ID_128(pair)==MJ_128_TILE(MJ_WIND, prevailing_wind))
         fu += 2;
 
     if (closed && tsumo)
@@ -466,26 +467,31 @@ int mj_seven_pairs(unsigned short *_yakus, mj_hand const *hand)
 
 inline int mj_basic_score(int fu, int fan)
 {
-    if (fan < 5)
-    {
+    if (fan < 1)
+        return 0;
+    else if (fan < 5 || (fan==4 && fu<40) || (fan==3 && fu<70))
         return fu << (2 + fan);
-    }
     else if (fan < 6)
-    {
         return MJ_MANGAN;
-    }
     else if (fan < 8)
-    {
         return MJ_HANEMAN;
-    }
     else if (fan < 11)
-    {
         return MJ_BAIMAN;
-    }
     else
-    {
         return MJ_SANBAIMAN;
+}
+
+void mj_print_yaku(unsigned short const *yakus)
+{
+#if _DEBUG_LEVEL > 0
+    for (int i = 0; i < MJ_YAKU_ARR_SIZE; ++i)
+    {
+        if (yakus[i] > 0)
+        {
+            printf("%s(%d): %d\n", MJ_YAKU_NAMES[i], i, yakus[i]);
+        }
     }
+#endif
 }
 
 // mj_bool mj_kokushi(mj_hand const *hand)

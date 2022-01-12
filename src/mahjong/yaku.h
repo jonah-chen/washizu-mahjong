@@ -42,6 +42,34 @@
 extern "C" {
 #endif
 
+static char const *MJ_YAKU_NAMES[MJ_YAKU_ARR_SIZE] = {
+    "Richii", // 0
+    "Ippatsu", // 1
+    "Menzenchin Tsumohou", // 2
+    "Pinfu", // 3
+    "Ipeikou", // 4
+    "Haitei", // 5
+    "Houtei", // 6
+    "Rinshan", // 7
+    "Chankan", // 8
+    "Tanyao", // 9
+    "Yakuhai", // 10
+    "Chanta", // 11
+    "Sanshoku doujun", // 12
+    "Ittsu", // 13
+    "Toitoi", // 14
+    "Sanankou", // 15
+    "Sanshoku doukou", // 16
+    "Sankantsu", // 17
+    "Chiitoitsu", // 18
+    "Honroutou", // 19
+    "Shousangen", // 20
+    "Honitsu", // 21
+    "Junchantai", // 22
+    "Ryanpeikou", // 23
+    "Chinitsu" // 24
+};
+
 /**
  * @brief Count the fu of a hand.
  * @requires The hand is already known to not be yakuman or 7 pairs.
@@ -55,7 +83,7 @@ extern "C" {
  * @param tsumo Whether the hand is won by tsumo.
  * @return The number of fu. It is at least 20.
  */
-int mj_fu(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, mj_tile ron, mj_bool tsumo);
+int mj_fu(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, mj_tile ron, mj_bool tsumo, int prevailing_wind, int seat_wind);
 
 /**
  * @brief Count all the possible yakus in a hand.
@@ -94,6 +122,8 @@ int mj_yakuman(unsigned short *yakus, mj_meld const *melds, mj_pair pair, mj_til
  * @return The basic score of the hand.
  */
 int mj_basic_score(int fu, int fan);
+
+void mj_print_yaku(unsigned short const *yakus);
 
 #ifdef __cplusplus
 }
