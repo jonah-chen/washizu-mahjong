@@ -2,7 +2,9 @@
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
+#ifndef _DEBUG_LEVEL
 #define _DEBUG_LEVEL 1
+#endif
 
 #if _DEBUG_LEVEL > 0
 #include <stdio.h>

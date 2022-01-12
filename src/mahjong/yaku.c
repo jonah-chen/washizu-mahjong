@@ -35,7 +35,7 @@ static inline void tanyao(mj_meld const *melds, mj_pair pair)
             return;
         }
     }
-    yakus[MJ_YAKU_TANYAO] = MJ_IS_19(MJ_FIRST(pair)) ? 1 : 0;
+    yakus[MJ_YAKU_TANYAO] = MJ_IS_19(pair) ? 0 : 1;
 }
 
 /**
@@ -82,7 +82,7 @@ static inline void chk_19(mj_meld const *melds, mj_pair pair, mj_bool pure)
         }
         if (pure)
             yakus[MJ_YAKU_JUNCHAN] = closed ? 3 : 2;
-        else if (yakus[MJ_YAKU_JUNCHAN])
+        else if (!yakus[MJ_YAKU_JUNCHAN])
             yakus[MJ_YAKU_CHANTA] = closed ? 2 : 1;
     }
 }
@@ -322,10 +322,16 @@ int mj_fu(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, mj_tile ro
     unsigned short *_tmp = _yakus;
     yakus = _yakus;
     closed = MJ_TRUE;
-    int fu = MJ_BASE_FU + 2/* Most likely it is not 2 sided wait */;
+    int fu = MJ_BASE_FU;
+    int wait_fu = 2;
     for (mj_size i = 0; i < MJ_MAX_TRIPLES_IN_HAND; ++i) 
     {
         mj_triple triple = melds->melds[i];
+
+        /* Closed */
+        if (MJ_IS_OPEN(triple)==MJ_TRUE)
+            closed = MJ_FALSE;
+
         if (MJ_IS_SET(triple)) // it is not a run
         {
             int triple_points = 2;
@@ -333,23 +339,24 @@ int mj_fu(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, mj_tile ro
             /* Kong */
             if (MJ_IS_KONG(triple)==MJ_TRUE)
                 triple_points <<= 2;
-
+            
             /* Closed */
-            if (MJ_IS_OPEN(triple)==MJ_TRUE)
-                closed = MJ_FALSE;
-            else if (tsumo==MJ_TRUE || MJ_ID_128(ron)!= MJ_ID_128(triple))
+            if (MJ_IS_OPEN(triple)==MJ_FALSE && (
+                tsumo==MJ_TRUE || MJ_ID_128(ron)!= MJ_ID_128(triple)))
                 triple_points <<= 1;
 
             /* Terminal or Honor */
-            if (MJ_IS_HONOR(triple)||MJ_NUMBER(triple)==0||MJ_NUMBER(triple)==8)
+            if (MJ_IS_19(triple))
                 triple_points <<= 1;
 
             fu += triple_points;
         }
-        else if ((ron == MJ_FIRST(triple) && MJ_NUMBER(ron) != 6) || 
-                (ron == MJ_THIRD(triple) && MJ_NUMBER(ron) != 2))
-            fu -= 2 /* 2 sided wait */;
+        else if ((MJ_ID_128(ron) == MJ_ID_128(triple) && MJ_NUMBER(ron) != 6) || 
+                (MJ_ID_128(ron) == MJ_ID_128(MJ_THIRD(triple)) && MJ_NUMBER(ron) != 2))
+            wait_fu = 0;
     }
+
+    fu += wait_fu;
 
     if (MJ_SUIT(pair)==MJ_DRAGON || 
         MJ_ID_128(pair)==MJ_128_TILE(MJ_WIND, seat_wind) || 

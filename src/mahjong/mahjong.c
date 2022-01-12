@@ -408,6 +408,20 @@ mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *m_result, mj_pair *p_res
     mj_size num_pairs = mj_pairs(hand, pairs);
 
     mj_size const NUM_CLOSED_MELDS = MJ_MAX_TRIPLES_IN_HAND - open.size;
+    if (NUM_CLOSED_MELDS == 0)
+    {
+        if (num_pairs)
+        {
+            memcpy(m_result, &open, sizeof(mj_meld));
+            *p_result = MJ_PAIR(hand.tiles[0], hand.tiles[1]);
+            return 1;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+
     mj_triple triple_buffer[MAX_CAPACITY];
     mj_triple combo_buffer[MAX_CAPACITY];
     mj_hand tmp_hand;
