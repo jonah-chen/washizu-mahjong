@@ -98,14 +98,16 @@ typedef struct mj_meld {
 
 /* Field Access Macros */
 #define MJ_ID_128(x) \
-(mj_id)(((x)>>2) & 0xff)
+(mj_id)(((x)>>2) & 0x7f)
 
+/* Number gets the number of the first tile in the meld */
 #define MJ_NUMBER(x) \
 (((x)>>2) & 0b1111)
 
 #define MJ_NUMBER1(x) \
 (MJ_NUMBER(x)+1)
 
+ /* suit can be used on both tiles and melds */
 #define MJ_SUIT(x) \
 (((x)>>6) & 0b111)
 
@@ -120,10 +122,19 @@ typedef struct mj_meld {
 
 /* Checks */
 #define MJ_OPAQUE(x) \
-(((x) & 0b11)==0)
+(mj_bool)((((x) & 0b11)==0)?MJ_TRUE:MJ_FALSE)
 
 #define MJ_IS_HONOR(x) \
-(((x)>=MJ_TILE(MJ_WIND,0,0))?MJ_TRUE:MJ_FALSE)
+(mj_bool)((MJ_SUIT(x)==MJ_WIND||MJ_SUIT(x)==MJ_DRAGON)?MJ_TRUE:MJ_FALSE)
+
+#define MJ_IS_19(x) \
+(mj_bool)((MJ_IS_HONOR(x) || MJ_NUMBER(x)==0 || MJ_NUMBER(x)==8)?MJ_TRUE:MJ_FALSE)
+
+#define MJ_IS_19_MELD(x) \
+(mj_bool)((MJ_IS_HONOR(MJ_FIRST(x)) || MJ_NUMBER(MJ_FIRST(x))==0 || MJ_NUMBER(MJ_THIRD(x))==8)?MJ_TRUE:MJ_FALSE)
+
+#define MJ_IS_SET(x) \
+(mj_bool)((MJ_ID_128(x)==MJ_ID_128(MJ_SECOND(x)))?MJ_TRUE:MJ_FALSE)
 
 #define MJ_IS_OPEN(x) \
 (mj_bool)(((x)>>30)&2)
@@ -132,9 +143,12 @@ typedef struct mj_meld {
 (mj_bool)(((x)>>29)&2)
 
 #define MJ_TRIPLE_WEAK_EQ(x,y) \
-(((x)|3|3<<9|3<<18)==((y)|3|3<<9|3<<18))
+(mj_bool)((((x)|3|3<<9|3<<18)==((y)|3|3<<9|3<<18))?MJ_TRUE:MJ_FALSE)
 
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief Parse a string (of specified format) into a hand of tiles.
@@ -245,3 +259,7 @@ void mj_print_pair(mj_pair pair);
 void mj_print_triple(mj_triple triple);
 void mj_print_hand(mj_hand hand);
 void mj_print_meld(mj_meld meld);
+
+#ifdef __cplusplus
+}
+#endif

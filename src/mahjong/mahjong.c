@@ -57,7 +57,8 @@ mj_size mj_pairs(mj_hand hand, mj_id *result)
     {
         if (MJ_ID_128(hand.tiles[i]) == MJ_ID_128(hand.tiles[i+1]))
         {
-            result[pairs++] = MJ_ID_128(hand.tiles[i++]);
+            if (result) result[pairs] = MJ_ID_128(hand.tiles[i++]);
+            ++pairs;
         }
     }
     LOG_DEBUG("pairs: %d\n", pairs);
