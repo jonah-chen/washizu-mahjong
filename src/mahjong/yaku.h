@@ -36,7 +36,8 @@
 #define MJ_YAKU_JUNCHAN 22 // chk_19 (with MJ_TRUE)
 #define MJ_YAKU_RYANPEIKOU 23 // two_sequence
 #define MJ_YAKU_CHINITSU 24 // flush (2 in 2)
-#define MJ_YAKU_ARR_SIZE 25
+#define MJ_YAKU_DORA 25 // external
+#define MJ_YAKU_ARR_SIZE 26
 
 #ifdef __cplusplus
 extern "C" {

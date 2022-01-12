@@ -76,6 +76,10 @@ typedef struct mj_meld {
 #define MJ_WEST 2
 #define MJ_NORTH 3
 
+#define MJ_UNIQUE_TILES 34
+#define MJ_DECK_SIZE 136
+#define MJ_DEAD_WALL_SIZE 14
+
 #define MJ_INVALID_TILE (mj_tile)(-1)
 
 /* Construction Macros */
