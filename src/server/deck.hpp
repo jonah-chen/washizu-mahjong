@@ -16,6 +16,12 @@ public:
     deck(deck const &) = delete;
     deck &operator=(deck const &) = delete;
 
+    deck(deck &&) = default;
+
+    void reset();
+
+    unsigned short tiger() { return luck(rng); }
+
     /**
      * @brief Draw a card from the deck.
      * 
@@ -42,4 +48,5 @@ private:
     std::size_t live_count { MJ_DECK_SIZE - MJ_DEAD_WALL_SIZE };
     std::size_t dora_count { 0 };
     std::mt19937 rng{ std::random_device{}() };
+    std::uniform_int_distribution<unsigned short> luck { 0, 0xffff };
 };

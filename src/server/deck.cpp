@@ -2,6 +2,13 @@
 
 deck::deck()
 {
+    reset();
+}
+
+void deck::reset()
+{
+    tiles.clear();
+
     /* Add the normal tiles to the deck */
     for (int suit = MJ_CHARACTER; suit <= MJ_BAMBOO; suit++)
         for (int number = 0; number < 9; number++)
@@ -20,6 +27,9 @@ deck::deck()
     
     /* Now shuffle the deck */
     std::shuffle(tiles.begin(), tiles.end(), rng);
+
+    live_count = MJ_DECK_SIZE - MJ_DEAD_WALL_SIZE;
+    dora_count = 0;
 }
 
 deck::card_type deck::operator()()

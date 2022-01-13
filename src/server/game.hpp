@@ -2,6 +2,7 @@
 
 #include "deck.hpp"
 #include "utils.hpp"
+#include "message.hpp"
 
 #define ASIO_STANDALONE
 #include <asio.hpp>
@@ -14,33 +15,71 @@ template<typename SocketType>
 struct game_client 
 {
     using socket_type = SocketType;
+    using id_type = unsigned short;
+
+    id_type uid;
     socket_type socket;
     std::mutex mutex;
-    game_client(socket_type &&socket)
-        : socket(std::move(socket)) {}
-    game_client(game_client &&other)
-        : socket(std::move(other.socket)), mutex(std::move(other.mutex)) {}
     
-    template<typename... Args>
-    std::size_t send(Args &&... args)
-    {
-        std::scoped_lock lock(client.mutex);
-        return asio::write(socket, args...);
-    }
+    game_client(socket_type &&socket)
+        : socket(std::move(socket)), uid(_counter) { ++_counter; }
+    game_client(game_client &&other)
+        : socket(std::move(other.socket)), mutex(std::move(other.mutex)), uid(other.uid) {}
 
+    inline bool operator==(const game_client &other) const { return uid == other.uid; }
+
+    template <typename ObjType>
+    std::size_t send(msg::header header, ObjType obj)
+    {
+        return asio::write(socket, asio::buffer(msg::buffer_data(header, obj), msg::BUFFER_SIZE));
+    }
     template<typename... Args>
     std::size_t recv(Args &&... args)
     {
-        std::scoped_lock lock(client.mutex);
-        return asio::read(socket, args...);
+        return asio::read(socket, asio::buffer(args...));
     }
+
+private:
+    static id_type _counter = 7000;
 };
 
 
+
+/**
+ * 2 way communication between the player and the game.
+ * 
+ * A: Turn starts by the server giving draw to the player. If tile is transparent, 
+ * the tile will be sent to all players and spectators. Otherwise, only the 
+ * player will be sent the tile and the other players will be sent INVALID_TILE.
+ * 
+ * Then it waits:
+ * B: Player can respond with (1) call, (2) discard.
+ * 
+ * (1) Server checks if call is valid. If not, server will respond with REJECT. This
+ * runs in a loop with a single timeout, so it cannot be exploited.
+ * 
+ * (2) Server checks if the discard is valid. If not, the server will tell the client
+ * to crash, because this means it is a bug.
+ * If the player timeout, they will discard the last tile they drew by default.
+ * 
+ * C: Then, this players turn is over and other players are given the chance to call
+ * that tile. The call follows with the precedence described by the rules. 
+ * Server checks if call is valid. If not, server will respond with REJECT. This
+ * runs in a loop with a single timeout, so it cannot be exploited.
+ * The turn will then proceed to the player who called, in the discard step B2.
+ * 
+ * If players timeout, they will by default pass the call.
+ * 
+ * 
+ * D: If the tile cannot be called by any player, a random delay between 0 and 3 seconds
+ * is added. Then, the turn proceeds to the next player and this process repeats.
+ * 
+ */
 class game
 {
 public:
     static constexpr std::size_t NUM_PLAYERS = 4;
+    static constexpr std::chrono::duration PING_FREQ = std::chrono::seconds(30);
 
 public:
     using protocall = asio::ip::tcp;
@@ -58,7 +97,7 @@ public:
     };
 
 public:
-    game(io_type &io, players_type &&players, bool heads_up);
+    game(std::ostream &server_log, std::ostream &game_log, players_type &&players, bool heads_up);
 
     ~game();
 
@@ -75,48 +114,30 @@ public:
     /**
      * Perform a reconnection.
      */
-    void reconnect(int player, protocall::socket &&socket);
-    
-    /**
-     * 2 way communication between the player and the game.
-     * 
-     * A: Turn starts by the server giving draw to the player. If tile is transparent, 
-     * the tile will be sent to all players and spectators. Otherwise, only the 
-     * player will be sent the tile and the other players will be sent INVALID_TILE.
-     * 
-     * Then it waits:
-     * B: Player can respond with (1) call, (2) discard.
-     * 
-     * (1) Server checks if call is valid. If not, server will respond with REJECT. This
-     * runs in a loop with a single timeout, so it cannot be exploited.
-     * 
-     * (2) Server checks if the discard is valid. If not, the server will tell the client
-     * to crash, because this means it is a bug.
-     * If the player timeout, they will discard the last tile they drew by default.
-     * 
-     * C: Then, this players turn is over and other players are given the chance to call
-     * that tile. The call follows with the precedence described by the rules. 
-     * Server checks if call is valid. If not, server will respond with REJECT. This
-     * runs in a loop with a single timeout, so it cannot be exploited.
-     * The turn will then proceed to the player who called, in the discard step B2.
-     * 
-     * If players timeout, they will by default pass the call.
-     * 
-     * 
-     * D: If the tile cannot be called by any player, a random delay between 0 and 3 seconds
-     * is added. Then, the turn proceeds to the next player and this process repeats.
-     * 
-     */
-    void player_io(int player);
+    void reconnect(unsigned short uid, protocall::socket &&socket);
 
     /**
      * 1 way communication from the game to all players and spectators.
      */
-    void broadcast();
+    template <typename ObjType>
+    void broadcast(msg::header header, ObjType obj, bool exclusive=false)
+    {
+        for (auto &player : players)
+            if (exclusive || player.uid != uid)
+                player.send(header, obj);
+
+        for (auto &spectator : spectators)
+            spectator.send(header, obj);
+    }
+
+    void play();
 
     void log(std::ostream &os, const std::string &msg);
 
 private:
+
+    std::ostream &server_log, &game_log;
+
     players_type players;
     spectators_type spectators;
 
@@ -126,6 +147,7 @@ private:
     std::array<mj_meld, NUM_PLAYERS> melds {};
     std::array<score_type, NUM_PLAYERS> scores {};
     std::array<discards_type, NUM_PLAYERS> discards {};
+    std::vector<card_type> dora_tiles;
     
     int prevailing_wind { MJ_EAST };
     int dealer { 0 };
@@ -160,4 +182,13 @@ private:
     void reshuffle();
 
     call_type call() const;
+
+    void ping_client(client_type &client);
+
+    void draw();
+
+    void new_dora();
+
+    mj_bool after_draw();
+
 };

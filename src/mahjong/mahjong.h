@@ -127,7 +127,7 @@ typedef struct mj_meld {
 (mj_tile)(((x)>>18)& 0b111111111)
 
 /* Checks */
-#define MJ_OPAQUE(x) \
+#define MJ_IS_OPAQUE(x) \
 (mj_bool)((((x) & 0b11)==0)?MJ_TRUE:MJ_FALSE)
 
 #define MJ_IS_HONOR(x) \

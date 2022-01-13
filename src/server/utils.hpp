@@ -2,6 +2,7 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <chrono>
 
 /**
  * @brief A wrapper method for a call with timeout.
@@ -18,8 +19,8 @@
  * 
  * @return The return value of the function call, or if_timeout if the timeout occurs.
  */
-template<typename TimeType, typename ReturnType, typename Func, typename... Args>
-ReturnType _timeout(TimeType timeout, Func function, ReturnType if_timeout, Args&&... args)
+template<typename ReturnType, typename Func, typename... Args>
+ReturnType _timeout(unsigned long ms, Func function, ReturnType if_timeout, Args&&... args)
 {
     std::mutex mutex;
     std::condition_variable cv;
@@ -34,7 +35,7 @@ ReturnType _timeout(TimeType timeout, Func function, ReturnType if_timeout, Args
     worker.detach();
 
     std::unique_lock lock(mutex);
-    if (cv.wait_for(lock, timeout)==std::cv_status::timeout)
+    if (cv.wait_for(lock, std::chrono::milliseconds(ms))==std::cv_status::timeout)
         return if_timeout;
 
     return return_value;

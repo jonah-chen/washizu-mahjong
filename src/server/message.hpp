@@ -1,44 +1,80 @@
 /**
  * This file describes the message structure of all communications between
  * the server and the client within the game. 
+ * 
+ * This file is the only file in the server folder that the client should use, 
+ * because it defines how the server communicates with the client.
  */
 
 #pragma once
 
-#include <string>
+#include <array>
 
 namespace msg
 {
+using id_type = unsigned short;
 
-enum class type : char
+static constexpr id_type PLAYER = 0x3f3f;
+static constexpr id_type SPECTATOR = 0x404d;
+static constexpr id_type REJECT = 0x8088;
+
+enum class header : char
 {
-    join_as_player          = 'p',
-    join_as_spectator       = 's',
-    draw_tile               = 'd',
-    call_pong               = '3',
-    call_chow               = 'c',
-    call_kong               = '4',
-    call_richii             = 'r',
-    call_ron                = '*',
-    call_tsumo              = '+',
-    ask_for_draw            = 'd',
+    reconnect               = 'e', /* uid original */
+    join_as_player          = 'p', /* magic number */
+    join_as_spectator       = 's', /* magic number */
+    draw_tile               = 'd', /* uid */
+    discard_tile            = 't', /* 9-bit tile unique ID */
+    call_pong               = '3', /* uid */
+    call_chow               = 'c', /* uid */
+    call_kong               = '4', /* uid */
+    call_richii             = 'r', /* uid */
+    call_ron                = '*', /* uid */
+    call_tsumo              = '+', /* uid */
+    ask_for_draw            = 'd', /* uid */
 
-    ping                    = ';',
+    ping                    = ';', /* random number (16 bit) */
     
-    reject                  = 'X',
-    queue_size              = 'Q',
-    your_position           = 'P',
-    this_player_drew        = 'D',
-    tile                    = 'T',
-    this_player_pong        = '#',
-    this_player_chow        = 'C',
-    this_player_kong        = '$',
-    this_player_richii      = 'R',
-    this_player_ron         = '/',
-    this_player_tsumo       = '-',
-    you_won                 = 'W',
-
-    
+    reject                  = 'X', /* magic number */
+    queue_size              = 'Q', /* number (1,2,3,4) */
+    your_id                 = 'I', /* number 16-bit */
+    your_position           = 'P', /* number (0,1,2,3) */
+    this_player_drew        = 'D', /* player */
+    tile                    = 'T', /* 9 bit tile unique ID */
+    this_player_pong        = '#', /* player */
+    this_player_chow        = 'C', /* player */
+    this_player_kong        = '$', /* player */
+    this_player_richii      = 'R', /* player */
+    this_player_ron         = '/', /* player */
+    this_player_tsumo       = '-', /* player */
+    you_won                 = 'W', /* num points */
+    dora_indicator          = 'B', /* 9 bit tile unique ID */
+    error                   = '!', /* player that caused it */
 };
+
+static constexpr std::size_t BUFFER_SIZE = 3;
+
+using buffer = std::array<char,BUFFER_SIZE>;
+
+template<typename ObjType>
+constexpr buffer buffer_data(header header, ObjType obj)
+{
+    return buffer({
+        static_cast<char>(header),
+        static_cast<char>(obj&0xff),
+        static_cast<char>((obj>>8)&0xff)
+    });
+}
+
+constexpr header type(buffer const &buf)
+{
+    return static_cast<header>(buf[0]);
+}
+
+template<typename ObjType>
+constexpr ObjType data(buffer const &buf)
+{
+    return static_cast<ObjType>((buf[1]&0xff) | ((buf[2]&0xff)<<8));
+}
 
 }
