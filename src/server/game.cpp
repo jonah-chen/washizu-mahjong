@@ -93,7 +93,7 @@ void log(std::ostream &os, const std::string &msg)
     os << msg << '\n';
 }
 
-void game::play()
+void game::play(turn_state_type state)
 {
     while (true)
     {
@@ -111,6 +111,14 @@ void game::play()
         {
             draw();
 
+            auto status = _timeout(15000, after_draw, turn_state_type::timeout);
+            if (status == turn_state_type::timeout)
+            {
+            }
+            else
+            {
+                play(status);
+            }
         }
 
     }
@@ -133,7 +141,7 @@ void game::draw()
     cur_tile = tile;
 }
 
-mj_bool game::after_draw()
+game::turn_state_type game::after_draw()
 {
     msg::buffer buffer;
 
@@ -142,21 +150,22 @@ mj_bool game::after_draw()
         players[cur_player].recv(buffer, msg::BUFFER_SIZE);
         msg::header ty = msg::type(buffer);
 
-        if (ty == msg::header::discard_tile)
+        switch (ty)
         {
+        case msg::header::discard_tile:
             auto discarded = msg::data<card_type>(buffer);
             if (mj_discard_tile(&hands[cur_player], discarded))
             {
                 broadcast(msg::header::tile, discarded);
-                return MJ_TRUE;
             }
             else
             {
                 players[cur_player].send(msg::header::reject, msg::REJECT);
+                break;
             }
-        }
-        else if (ty == msg::header::call_tsumo)
-        {
+            return turn_state_type::wait_for_call;
+
+        case msg::header::call_tsumo:
             // check if hand is tsumo able
             unsigned short yakus[MJ_YAKU_ARR_SIZE];
             int fu, fan;
@@ -165,13 +174,72 @@ mj_bool game::after_draw()
             if (score)
             {
                 broadcast(msg::header::this_player_tsumo, cur_player);
-                return MJ_TRUE;
+                score += bonus_score;
+                if (cur_player == dealer)
+                {
+                    for (int p = 0; p < NUM_PLAYERS; ++p)
+                    {
+                        if (p == cur_player)
+                            payment(p, 6*score+deposit);
+                        else
+                            payment(p,-4*score);
+                    }
+                    end_round(true);
+                }
+                else
+                {
+                    for (int p = 0; p < NUM_PLAYERS; ++p)
+                    {
+                        if (p == cur_player)
+                            payment(p, 4*score+deposit);
+                        else if (p == dealer)
+                            payment(p,-2*score);
+                        else
+                            payment(p,-score);
+                    }
+                    end_round(false);
+                }
             }
             else
             {
-                broadcast(msg::header::error, cur_player);
-                return MJ_MAYBE;
+                chombo_penalty();
             }
+            return turn_state_type::abort;
+
+        case msg::header::call_riichi:
+            broadcast(msg::header::this_player_riichi, cur_player);
+            payment(cur_player, -MJ_RIICHI_DEPOSIT);
+            deposit += MJ_RIICHI_DEPOSIT;
+            return turn_state_type::discard;
+
+        case msg::header::call_kong:
+            // check closed kong first
+            auto *kong = mj_open_kong_available(melds[cur_player], cur_tile);
+
+            if (kong)
+            {
+                MJ_KONG_TRIPLE(*kong);
+                mj_discard_tile(&hands[cur_player], cur_tile);
+            }
+            else if (mj_closed_kong_available(hands[cur_player], cur_tile))
+            {
+                mj_discard_tile(&hands[cur_player], cur_tile);
+                mj_discard_tile(&hands[cur_player], cur_tile^0b01);
+                mj_discard_tile(&hands[cur_player], cur_tile^0b10);
+                mj_discard_tile(&hands[cur_player], cur_tile^0b11);
+                mj_add_meld(&melds[cur_player], MJ_KONG_TRIPLE(MJ_TRIPLE(cur_tile,cur_player^0b01,cur_player^0b10)));
+            }
+            else
+            {
+                players[cur_player].send(msg::header::reject, msg::REJECT);
+                break;
+            }
+            broadcast(msg::header::this_player_kong, cur_player);
+            
+            new_dora();
+            draw(); // rinshan draw
+            
+            return turn_state_type::discard;
         }
     }
 }
@@ -180,6 +248,58 @@ void game::new_dora()
 {
     dora_tiles.push_back(wall());
     broadcast(msg::header::dora_indicator, dora_tiles.back());
+}
+
+void game::chombo_penalty()
+{
+    if (heads_up)
+    {
+        payment(cur_player, -MJ_MANGAN*2);
+        payment(cur_player^0b1, -MJ_MANGAN*2);
+        payment(cur_player^0b10, MJ_MANGAN*2);
+        payment(cur_player^0b11, MJ_MANGAN*2);
+    }
+    else if (cur_player == dealer)
+    {
+        for (int p = 0; p < NUM_PLAYERS; ++p)
+        {
+            if (p == cur_player)
+                payment(p, -MJ_MANGAN*6);
+            else
+                payment(p, MJ_MANGAN*2);
+        }
+    }
+    else
+    {
+        for (int p = 0; p < NUM_PLAYERS; ++p)
+        {
+            if (p==dealer)
+                payment(p, MJ_MANGAN * 2);
+            else if (p==cur_player)
+                payment(p, -MJ_MANGAN * 4);
+            else
+                payment(p, MJ_MANGAN);
+        }
+    }
+
+    end_round(true);
+}
+
+void game::payment(int player, score_type score)
+{
+    scores[player] += score;
+    broadcast(msg::header::this_player_won, player);
+    broadcast(msg::header::this_many_points, score);
+}
+
+void game::end_round(bool repeat)
+{
+    if (repeat)
+        bonus_score += MJ_BONUS_SCORE;
+    else
+        bonus_score = 0;
+    
+    reshuffle();
 }
 
 
@@ -227,21 +347,6 @@ void game::new_dora()
 //     }
 // }
 
-// void game::broadcast()
-// {
-//     for (auto &player : players)
-//     {
-//         send(player, "pin");
-//     }
-
-//     for (auto &spectator : spectators)
-//     {
-//         asio::write(spectator, asio::buffer("asdf"));
-//     }
-
-
-// }
-
 void game::reshuffle()
 {
     for (auto &p_hand : hands)
@@ -259,9 +364,4 @@ void game::reshuffle()
 
     wall.reset();
 }
-
-// game::call_type game::call() const
-// {
-
-// }
 

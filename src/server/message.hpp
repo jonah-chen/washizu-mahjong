@@ -15,20 +15,19 @@ namespace msg
 using id_type = unsigned short;
 
 static constexpr id_type PLAYER = 0x3f3f;
-static constexpr id_type SPECTATOR = 0x404d;
 static constexpr id_type REJECT = 0x8088;
 
 enum class header : char
 {
     reconnect               = 'e', /* uid original */
     join_as_player          = 'p', /* magic number */
-    join_as_spectator       = 's', /* magic number */
+    join_as_spectator       = 's', /* game id */
     draw_tile               = 'd', /* uid */
     discard_tile            = 't', /* 9-bit tile unique ID */
     call_pong               = '3', /* uid */
     call_chow               = 'c', /* uid */
     call_kong               = '4', /* uid */
-    call_richii             = 'r', /* uid */
+    call_riichi             = 'r', /* uid */
     call_ron                = '*', /* uid */
     call_tsumo              = '+', /* uid */
     ask_for_draw            = 'd', /* uid */
@@ -44,10 +43,11 @@ enum class header : char
     this_player_pong        = '#', /* player */
     this_player_chow        = 'C', /* player */
     this_player_kong        = '$', /* player */
-    this_player_richii      = 'R', /* player */
+    this_player_riichi      = 'R', /* player */
     this_player_ron         = '/', /* player */
     this_player_tsumo       = '-', /* player */
-    you_won                 = 'W', /* num points */
+    this_player_won         = 'W', /* num points */
+    this_many_points        = 'Z', /* num points */
     dora_indicator          = 'B', /* 9 bit tile unique ID */
     error                   = '!', /* player that caused it */
 };

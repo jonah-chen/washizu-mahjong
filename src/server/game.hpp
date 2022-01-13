@@ -43,6 +43,13 @@ private:
     static id_type _counter = 7000;
 };
 
+enum class turn_state {
+    abort,
+    timeout,
+    call, /* Calling richii, closed kong, normal kong on meld */
+    discard, /* Discarding */
+    wait_for_call /* If opponent can call the tile you discarded */
+};
 
 
 /**
@@ -92,6 +99,7 @@ public:
     using card_type = typename deck_type::card_type;
     using score_type = int;
     using discards_type = std::vector<card_type>;
+    using turn_state_type = turn_state;
     enum class call_type : unsigned char {
         pass, chow, pong, kong, richii, ron, tsumo
     };
@@ -130,7 +138,7 @@ public:
             spectator.send(header, obj);
     }
 
-    void play();
+    void play(turn_state_type state);
 
     void log(std::ostream &os, const std::string &msg);
 
@@ -152,15 +160,14 @@ private:
     int prevailing_wind { MJ_EAST };
     int dealer { 0 };
     int cur_player { 0 };
-    enum class turn_state {
-        call, /* Calling richii, closed kong, normal kong on meld */
-        discard, /* Discarding */
-        wait_for_call /* If opponent can call the tile you discarded */
-    } turn_state { turn_state::discard };
+    turn_state_type turn_state { turn_state::discard };
 
     card_type cur_tile { MJ_INVALID_TILE };
 
     bool heads_up;
+
+    score_type deposit {};
+    score_type bonus_score {};
 
     std::thread ping_thread;
 
@@ -189,6 +196,11 @@ private:
 
     void new_dora();
 
-    mj_bool after_draw();
+    turn_state_type after_draw();
 
+    void chombo_penalty();
+
+    void payment(int player, score_type score);
+
+    void end_round(bool repeat);
 };
