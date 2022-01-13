@@ -74,6 +74,39 @@ mj_bool mj_kong_available(mj_hand hand, mj_tile const tile)
     return MJ_FALSE;
 }
 
+mj_bool mj_closed_kong_available(mj_hand hand, mj_tile const tile)
+{
+    if (tile == MJ_INVALID_TILE)
+        return MJ_FALSE;
+
+    for (mj_tile *i = hand.tiles; i < hand.tiles+hand.size-3 && MJ_ID_128(*i) <= MJ_ID_128(tile); ++i)
+    {
+        if (MJ_ID_128(*i) == MJ_ID_128(i[1]) &&
+            MJ_ID_128(*i) == MJ_ID_128(i[2]) &&
+            MJ_ID_128(*i) == MJ_ID_128(i[3]) &&
+            MJ_ID_128(*i) == MJ_ID_128(tile))
+        {
+            return MJ_TRUE;
+        }
+    }
+    return MJ_FALSE;
+}
+
+mj_triple *mj_open_kong_available(mj_meld melds, mj_tile const tile)
+{
+    if (tile == MJ_INVALID_TILE)
+        return NULL;
+
+    for (mj_triple *i = melds.melds; i < melds.melds + melds.size; ++i)
+    {
+        if (MJ_IS_SET(*i) && MJ_ID_128(*i) == MJ_ID_128(tile))
+        {
+            return i;
+        }
+    }
+    return NULL;
+}
+
 mj_size mj_chow_available(mj_hand hand, mj_tile const tile, mj_pair *chow_tiles)
 {
     if (tile == MJ_INVALID_TILE)

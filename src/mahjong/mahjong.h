@@ -80,6 +80,9 @@ typedef struct mj_meld {
 #define MJ_DECK_SIZE 136
 #define MJ_DEAD_WALL_SIZE 14
 
+#define MJ_BONUS_SCORE 100
+#define MJ_RIICHI_DEPOSIT 1000
+
 #define MJ_INVALID_TILE (mj_tile)(-1)
 
 /* Construction Macros */

@@ -53,13 +53,33 @@ void mj_add_meld(mj_meld *melds, mj_triple triple);
 mj_bool mj_pong_available(mj_hand hand, mj_tile const tile);
 
 /**
- * @brief Determine if a KONG call is valid on a specific tile.
+ * @brief Determine if a KONG call (from another player) is valid on
+ * a specific tile.
  * 
  * @param hand The hand of the player calling KONG.
  * @param tile The tile that is called.
  * @return True if the KONG call is valid, false otherwise.
  */
 mj_bool mj_kong_available(mj_hand hand, mj_tile const tile);
+
+/**
+ * @brief Determine if a closed KONG call is valid on a specific tile.
+ * 
+ * @param hand The hand of the player calling KONG.
+ * @param tile The tile that is called.
+ * @return True if the closed KONG call is valid, false otherwise.
+ */
+mj_bool mj_closed_kong_available(mj_hand hand, mj_tile const tile);
+
+/**
+ * @brief Determine if a open KONG call is valid on a specific tile.
+ * 
+ * @param hand The hand of the player calling KONG.
+ * @param tile The tile that is called.
+ * @return The meld the tile should be added to to make the open KONG,
+ * and NULL if the open KONG is not valid.
+ */
+mj_triple *mj_open_kong_available(mj_meld melds, mj_tile const tile);
 
 /**
  * @brief Determine if a CHOW call is valid on a specific tile.
