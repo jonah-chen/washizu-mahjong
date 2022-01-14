@@ -113,6 +113,7 @@ public:
     using protocall = asio::ip::tcp;
     using client_type = game_client<protocall::socket>;
     using players_type = std::array<client_type, NUM_PLAYERS>;
+    using player_property_type = std::array<bool, NUM_PLAYERS>;
     using spectators_type = std::vector<client_type>;
     using message_type = std::string;
     using io_type = asio::io_context;
@@ -164,7 +165,6 @@ public:
     void log(std::ostream &os, const std::string &msg);
 
 private:
-
     std::ostream &server_log, &game_log;
 
     players_type players;
@@ -177,18 +177,17 @@ private:
     std::array<score_type, NUM_PLAYERS> scores {};
     std::array<discards_type, NUM_PLAYERS> discards {};
     std::vector<card_type> dora_tiles;
+    player_property_type riichi;
     
     int prevailing_wind { MJ_EAST };
     int dealer { 0 };
     int cur_player { 0 };
     state_type cur_state { state_type::start_round };
-
     card_type cur_tile { MJ_INVALID_TILE };
-
-    bool heads_up;
-
     score_type deposit {};
     score_type bonus_score {};
+
+    bool heads_up;
 
     std::thread ping_thread;
     std::thread main_thread;
@@ -239,9 +238,4 @@ private:
     state_type call_tsumo();
 
     state_type after_draw();
-
-
-   
-
-    void end_round(bool repeat);
 };

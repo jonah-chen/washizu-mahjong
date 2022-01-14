@@ -298,6 +298,7 @@ game::state_type game::self_call()
             broadcast(msg::header::this_player_riichi, cur_player);
             payment(cur_player, -MJ_RIICHI_DEPOSIT);
             deposit += MJ_RIICHI_DEPOSIT;
+            riichi[cur_player] = true;
             return state_type::discard;
 
         case msg::header::discard_tile:
@@ -361,10 +362,55 @@ void game::renchan()
 
 void game::exhaustive_draw()
 {
-    // TODO: check dealer (& everyone) tenpai
-    // TODO: perform the payments
-    // TODO: change the round if needed
-    cur_state = state_type::start_round;
+    player_property_type tenpai;
+    int players_tenpai = 0;
+    for (int i = 0; i < NUM_PLAYERS; ++i)
+    {
+        if (mj_tenpai(hands[i], melds[i], nullptr))
+        {
+            tenpai[i] = true;
+            ++players_tenpai;
+        }
+        else
+        {
+            tenpai[i] = false;
+            if (riichi[i])
+            {
+                cur_player = i;
+                cur_state = state_type::chombo;
+                return;
+            }
+        }
+    }
+
+    switch(players_tenpai)
+    {
+    case 1:
+        for (int i = 0; i < NUM_PLAYERS; ++i)
+            payment(i, tenpai[i] ? 3000 : -1000);
+        break;
+    case 2:
+        for (int i = 0; i < NUM_PLAYERS; ++i)
+            payment(i, tenpai[i] ? 1500 : -1500);
+        break;
+    case 3:
+        for (int i = 0; i < NUM_PLAYERS; ++i)
+            payment(i, tenpai[i] ? 1000 : -3000);
+        break;
+    }
+
+    if (tenpai[dealer])
+        cur_state = state_type::renchan;
+    else
+    {
+        if (++dealer == NUM_PLAYERS)
+        {
+            dealer = 0;
+            ++prevailing_wind;
+        }
+        bonus_score += MJ_BONUS_SCORE;
+        cur_state = state_type::start_round;
+    }
 }
 
 /* Penalty */
@@ -411,65 +457,9 @@ void game::chombo_penalty()
 }
 
 
-// void game::player_io(int player)
-// {
-//     using namespace std::chrono_literals;
-
-//     auto &p_hand = hands[player];
-//     auto &p_melds = melds[player];
-//     auto &p_discards = discards[player];
-//     mj_meld result[64];
-//     mj_pair pairs[16];
-
-
-//     // need to check for ron or tsumo
-//     // add the tile to the hand, while preserving a copy
-//     auto p_hand_cpy = p_hand;
-//     mj_add_tile(&p_hand_cpy, cur_tile);
-
-
-
-//     if (cur_player == player)
-//     {
-        
-//         if (mj_kong_available(p_hand, cur_tile))
-//         {
-//             _timeout(15s, call, call_type::pass);
-//         }
-//     }
-
-//     else
-//     {
 //         // check for ron
 //         if (std::find_if(p_discards.begin(),p_discards.end(),
 //         [this](card_type &discarded_tile) 
 //         {
 //             return MJ_ID_128(cur_tile) == MJ_ID_128(discarded_tile);
 //         }) == p_discards.end())
-//         {
-//             // check if hand has yaku
-            
-//         }
-//         else {} // player is in furiten
-
-//     }
-// }
-
-void game::reshuffle()
-{
-    for (auto &p_hand : hands)
-        mj_empty_hand(&p_hand);
-
-    for (auto &p_melds : melds)
-        mj_empty_melds(&p_melds);
-    
-    for (auto &p_discards : discards)
-        p_discards.clear();
-    
-    cur_tile = MJ_INVALID_TILE;
-
-    cur_state = state_type::discard;
-
-    wall.reset();
-}
-
