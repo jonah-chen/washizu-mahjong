@@ -44,11 +44,28 @@ private:
 };
 
 enum class turn_state {
+    game_over, /* Game is over */
+    start_round, /* Start of a new round */
+    
+    /* Normal Gameplay */
+    draw,
+    self_call, /* Calling richii, closed kong, normal kong on meld */
+    discard, /* Discarding */
+    opponent_call, /* If opponent can call the tile you discarded */
+    
+    /* Special Gameplay */
+    after_kong,
+    
+    /* End of round */
+    next,
+    renchan,
+    exhaustive_draw,
+
+    /* Bad Stuff happened */
+    tsumogiri,
+    chombo,
     abort,
     timeout,
-    call, /* Calling richii, closed kong, normal kong on meld */
-    discard, /* Discarding */
-    wait_for_call /* If opponent can call the tile you discarded */
 };
 
 
@@ -87,6 +104,10 @@ class game
 public:
     static constexpr std::size_t NUM_PLAYERS = 4;
     static constexpr std::chrono::duration PING_FREQ = std::chrono::seconds(30);
+    static constexpr unsigned long  
+        SELF_CALL_TIMEOUT       = 15000,
+        DISCARD_TIMEOUT         = 15000,
+        OPPONENT_CALL_TIMEOUT   = 15000;
 
 public:
     using protocall = asio::ip::tcp;
@@ -99,7 +120,7 @@ public:
     using card_type = typename deck_type::card_type;
     using score_type = int;
     using discards_type = std::vector<card_type>;
-    using turn_state_type = turn_state;
+    using state_type = turn_state;
     enum class call_type : unsigned char {
         pass, chow, pong, kong, richii, ron, tsumo
     };
@@ -131,14 +152,14 @@ public:
     void broadcast(msg::header header, ObjType obj, bool exclusive=false)
     {
         for (auto &player : players)
-            if (exclusive || player.uid != uid)
+            if (!exclusive || player.uid != uid)
                 player.send(header, obj);
 
         for (auto &spectator : spectators)
             spectator.send(header, obj);
     }
 
-    void play(turn_state_type state);
+    void play();
 
     void log(std::ostream &os, const std::string &msg);
 
@@ -160,7 +181,7 @@ private:
     int prevailing_wind { MJ_EAST };
     int dealer { 0 };
     int cur_player { 0 };
-    turn_state_type turn_state { turn_state::discard };
+    state_type cur_state { state_type::start_round };
 
     card_type cur_tile { MJ_INVALID_TILE };
 
@@ -192,15 +213,34 @@ private:
 
     void ping_client(client_type &client);
 
+
+    /* handle different states */
+    void start_round();
+    state_type self_call();
+    state_type discard(); /* wait for tile to recieved by server */
+    state_type opponent_call();
+    void next();
+    void renchan();
+    void exhaustive_draw();
+    /* Player error states */
+    void tsumogiri();
+    void chombo_penalty();
+
+    /* Helpers */
     void draw();
 
     void new_dora();
 
-    turn_state_type after_draw();
-
-    void chombo_penalty();
-
     void payment(int player, score_type score);
+
+    bool self_call_kong();
+
+    state_type call_tsumo();
+
+    state_type after_draw();
+
+
+   
 
     void end_round(bool repeat);
 };
