@@ -151,6 +151,12 @@ static void test_some_hand()
 
 int main(int argc, char *argv[])
 {
+    mj_hand hand;
+    mj_meld empty = {0,0,0,0,0};
+    mj_parse("12345678m333ps22wd", &hand);
+    assert(mj_tenpai(hand,empty,NULL)==3);
+
+
     test_hand(30, 1, 1, MJ_TILE(MJ_CHARACTER, 2, 0), MJ_FALSE, MJ_EAST, MJ_EAST,
     "123345567m123ps22wd", NULL, NULL, NULL, NULL); // pinfu only
 

@@ -187,7 +187,7 @@ void mj_sort_hand(mj_hand *hand);
 /**
  * @brief Finds all possible pairs in the hand.
  * 
- * @param hand The hand to search.
+ * @param hand The hand to search. @pre must be sorted.
  * @param result The array of pairs to fill.
  * @return The number of pairs found.
  */
@@ -199,7 +199,7 @@ mj_size mj_pairs(mj_hand hand, mj_id *result);
  * @note This includes repeat tiles. (i.e. if hand contains 3 of the same tile,
  * they will be treated seperately).
  * 
- * @param hand The hand to search.
+ * @param hand The hand to search. @pre must be sorted.
  * @param result The array to store the triples.
  * @param capacity The maximum number of triples to store.
  * @return The number of triples found.
@@ -212,7 +212,7 @@ mj_size mj_triples(mj_hand hand, mj_triple *result, mj_size capacity);
  * @details This method uses depth first search over a tree. It is useful for finding
  * if a hand is winning or not, and calculating the score (especially the Fu).
  * 
- * @param hand The hand to search.
+ * @param hand The hand to search. @pre must be sorted.
  * @param triples The array of triples which the hand can form (or to search through).
  * @param num_triples The size of the triples array.
  * @param result The array to store the combinations.
@@ -224,7 +224,7 @@ mj_size mj_n_triples(mj_hand hand, mj_triple *triples, mj_size num_triples, mj_t
 /**
  * @brief Check the winning combinations that a hand can form.
  * 
- * @param hand The hand to check.
+ * @param hand The hand to check. @pre must be sorted.
  * @param open The open melds the player has called.
  * @param m_result The sets of 4 melds that the is formed.
  * @param p_result The pair that the hand can form.
@@ -232,6 +232,19 @@ mj_size mj_n_triples(mj_hand hand, mj_triple *triples, mj_size num_triples, mj_t
  */
 mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *m_result, mj_pair *p_result);
 
+/**
+ * @brief Check if a hand is tenpai.
+ * 
+ * @details A hand is tenpai if it is one tile away from a winning hand,
+ * which may allow the hand to call RON or TSUMO if the correct tile is
+ * dealt.
+ * 
+ * @param hand The hand to check. @pre must be sorted.
+ * @param open The open melds the player has called.
+ * @param result The IDs of different tiles the hand can win with.
+ * @return The number of distinct tiles that the hand can win from.
+ */
+mj_size mj_tenpai(mj_hand hand, mj_meld open, mj_id *result);
 
 void mj_print_tile(mj_tile tile);
 void mj_print_pair(mj_pair pair);

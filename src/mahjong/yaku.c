@@ -1,4 +1,5 @@
 #include "yaku.h"
+#include <string.h>
 
 #define MAX_RESULTS 32
 

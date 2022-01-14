@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_CAPACITY 1000
+#define MAX_CAPACITY 512
 
 void mj_parse(char const *str, mj_hand *hand)
 {
@@ -421,6 +421,113 @@ mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *m_result, mj_pair *p_res
     return num_wins;
 }
 
+mj_size mj_tenpai(mj_hand hand, mj_meld open, mj_id *result)
+{
+    if (hand.size + 3*open.size != 13)
+        return 0;
+
+    mj_meld triples[64];
+    mj_pair pairs[16];    
+    mj_size num_waiting = 0;
+    mj_hand tmp_hand;
+
+    mj_size idx = 0; /* index that allows us to march through the hand exactly once */
+ 
+    /* check the tiles of each normal suit */
+    for (int suit = MJ_CHARACTER; ; ++suit)
+    {
+        while (MJ_SUIT(hand.tiles[idx]) != suit)
+        {
+            if (MJ_SUIT(hand.tiles[idx]) > suit)
+                ++suit;
+            if (MJ_SUIT(hand.tiles[idx]) < suit)
+                ++idx;
+        }
+
+        if (suit > MJ_BAMBOO)
+            break;
+
+        /* suit >= tilesuit */
+        for (int number = 0; number < 9; ++number)
+        {
+            while (MJ_SUIT(hand.tiles[idx]) == suit &&
+                MJ_NUMBER(hand.tiles[idx]) < number - 1 ||
+                MJ_NUMBER(hand.tiles[idx]) > number + 1)
+            {
+                if (MJ_NUMBER(hand.tiles[idx]) < number - 1)
+                    ++idx;
+                if (MJ_NUMBER(hand.tiles[idx]) > number + 1)
+                    ++number;
+            }
+            if (MJ_SUIT(hand.tiles[idx]) != suit)
+                break;
+
+            memcpy(&tmp_hand, &hand, sizeof(mj_hand));
+            tmp_hand.tiles[tmp_hand.size++] = MJ_TILE(suit, number, 0);
+            mj_sort_hand(&tmp_hand);
+            mj_size num_wins = mj_n_agari(tmp_hand, open, triples, pairs);
+            if (num_wins)
+            {
+                if (result)
+                    result[num_waiting] = MJ_128_TILE(suit, number);
+                ++num_waiting;
+            }
+        }
+    }
+
+    /* check honor tiles */
+    for (int number = 0; ; ++number)
+    {
+        while (MJ_SUIT(hand.tiles[idx]) == MJ_WIND &&
+            MJ_NUMBER(hand.tiles[idx]) != number)
+        {
+            if (MJ_NUMBER(hand.tiles[idx]) < number)
+                ++idx;
+            if (MJ_NUMBER(hand.tiles[idx]) > number)
+                ++number;
+        }
+        if (number >= 4 || MJ_SUIT(hand.tiles[idx]) != MJ_WIND)
+            break;
+        
+
+        memcpy(&tmp_hand, &hand, sizeof(mj_hand));
+        tmp_hand.tiles[tmp_hand.size++] = MJ_TILE(MJ_WIND, number, 0);
+        mj_sort_hand(&tmp_hand);
+        mj_size num_wins = mj_n_agari(tmp_hand, open, triples, pairs);
+        if (num_wins)
+        {
+            if (result)
+                result[num_waiting] = MJ_128_TILE(MJ_WIND, number);
+            ++num_waiting;
+        }
+    }
+
+    for (int number = 0; ; ++number)
+    {
+        while (MJ_SUIT(hand.tiles[idx]) == MJ_DRAGON &&
+            MJ_NUMBER(hand.tiles[idx]) != number)
+        {
+            if (MJ_NUMBER(hand.tiles[idx]) < number)
+                ++number;
+            if (MJ_NUMBER(hand.tiles[idx]) > number)
+                ++idx;
+        }
+        if (number >= 3 || MJ_SUIT(hand.tiles[idx]) != MJ_DRAGON)
+            break;
+
+        memcpy(&tmp_hand, &hand, sizeof(mj_hand));
+        tmp_hand.tiles[tmp_hand.size++] = MJ_TILE(MJ_DRAGON, number, 0);
+        mj_sort_hand(&tmp_hand);
+        mj_size num_wins = mj_n_agari(tmp_hand, open, triples, pairs);
+        if (num_wins)
+        {
+            if (result)
+                result[num_waiting] = MJ_128_TILE(MJ_DRAGON, number);
+            ++num_waiting;
+        }
+    }
+    return num_waiting;
+}
 
 void mj_print_tile(mj_tile tile)
 {
