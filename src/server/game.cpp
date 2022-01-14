@@ -10,10 +10,10 @@ game::game(std::ostream &server_log, std::ostream &game_log, players_type &&play
     for (int pos = 0; pos < NUM_PLAYERS; ++pos)
         players[pos].send(msg::header::your_position, pos);
 
-    ping_thread = std::thread(ping);
+    ping_thread = std::thread(&game::ping, this);
     ping_thread.detach();
 
-    main_thread = std::thread(play);
+    main_thread = std::thread(&game::play, this);
     main_thread.detach();
 }
 
@@ -78,12 +78,12 @@ void game::ping()
 
         for (auto &client : players)
         {
-            std::thread ping_thread(ping_client, std::ref(client));
+            std::thread ping_thread(&game::ping_client, this, std::ref(client));
             ping_thread.detach();
         }
         for (auto &client : spectators)
         {
-            std::thread ping_thread(ping_client, std::ref(client));
+            std::thread ping_thread(&game::ping_client, this, std::ref(client));
             ping_thread.detach();
         }
     }
@@ -248,13 +248,13 @@ void game::play()
         case state_type::draw:
             draw();
         case state_type::self_call:
-            cur_state = _timeout(SELF_CALL_TIMEOUT, self_call, state_type::tsumogiri);
+            cur_state = _timeout(SELF_CALL_TIMEOUT, this, &game::self_call, state_type::tsumogiri);
             break;
         case state_type::discard:
-            cur_state = _timeout(DISCARD_TIMEOUT, discard, state_type::tsumogiri);
+            cur_state = _timeout(DISCARD_TIMEOUT, this, &game::discard, state_type::tsumogiri);
             break;
         case state_type::opponent_call:
-            cur_state = _timeout(OPPONENT_CALL_TIMEOUT, opponent_call, state_type::tsumogiri);
+            cur_state = _timeout(OPPONENT_CALL_TIMEOUT, this, &game::opponent_call, state_type::tsumogiri);
             break;
         case state_type::after_kong:
             new_dora();
@@ -427,7 +427,7 @@ game::state_type game::opponent_call()
         (cur_player+1)%NUM_PLAYERS, (cur_player+2)%NUM_PLAYERS, (cur_player+3)%NUM_PLAYERS
     };
 
-    
+
 
     if (1 /* there was a call */)
     for (auto &p_flags : flags)
@@ -547,3 +547,6 @@ void game::chombo_penalty()
 
     cur_state = state_type::start_round;
 }
+
+template<typename SocketType>
+game_client<SocketType>::id_type game_client<SocketType>::_counter = 8000;

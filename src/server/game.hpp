@@ -24,7 +24,7 @@ struct game_client
     game_client(socket_type &&socket)
         : socket(std::move(socket)), uid(_counter) { ++_counter; }
     game_client(game_client &&other)
-        : socket(std::move(other.socket)), mutex(std::move(other.mutex)), uid(other.uid) {}
+        : socket(std::move(other.socket)), uid(other.uid) {}
 
     inline bool operator==(const game_client &other) const { return uid == other.uid; }
 
@@ -40,7 +40,7 @@ struct game_client
     }
 
 private:
-    static id_type _counter = 7000;
+    static id_type _counter;
 };
 
 enum class turn_state {
@@ -167,7 +167,7 @@ public:
     void broadcast(msg::header header, ObjType obj, bool exclusive=false)
     {
         for (auto &player : players)
-            if (!exclusive || player.uid != uid)
+            if (!exclusive || player != players[cur_player])
                 player.send(header, obj);
 
         for (auto &spectator : spectators)
