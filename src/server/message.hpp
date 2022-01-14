@@ -14,8 +14,11 @@ namespace msg
 {
 using id_type = unsigned short;
 
-static constexpr id_type PLAYER = 0x3f3f;
-static constexpr id_type REJECT = 0x8088;
+static constexpr id_type 
+    PLAYER = 0x3f3f,
+    REJECT = 0x8088,
+    START_STREAM = 0xa000,
+    END_STREAM = 0xa001;
 
 enum class header : char
 {
@@ -50,6 +53,12 @@ enum class header : char
     this_many_points        = 'Z', /* num points */
     dora_indicator          = 'B', /* 9 bit tile unique ID */
     error                   = '!', /* player that caused it */
+    this_player_hand        = 'H', /* player */
+    closed_hand             = 'K', /* stream */
+    yaku_list               = 'M', /* stream */
+    winning_yaku            = 'Y', /* yaku_type */
+    yaku_fan_count          = 'F', /* int */
+    fu_count                = 'U', /* int */
 };
 
 static constexpr std::size_t BUFFER_SIZE = 3;

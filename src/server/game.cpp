@@ -104,12 +104,17 @@ void game::draw()
         return;
     }
 
+    if (wall.size() < MJ_DECK_SIZE - MJ_DEAD_WALL_SIZE - NUM_PLAYERS)
+        game_flags &= ~FIRST_TURN_FLAG;
+
     mj_add_tile(&hands[cur_player], tile);
+
+    flags[cur_player] &= ~IPPATSU_FLAG;
 
     broadcast(msg::header::this_player_drew, cur_player);
     if (MJ_IS_OPAQUE(tile))
     {
-        broadcast(msg::header::tile, MJ_INVALID_TILE, false);
+        broadcast(msg::header::tile, MJ_INVALID_TILE, true);
         players[cur_player].send(msg::header::tile, tile);
     }
     else
@@ -137,8 +142,9 @@ bool game::self_call_kong()
 
     if (kong)
     {
-        MJ_KONG_TRIPLE(*kong);
+        *kong = MJ_KONG_TRIPLE(*kong);
         mj_discard_tile(&hands[cur_player], cur_tile);
+        game_flags |= OTHER_KONG_FLAG;
     }
     else if (mj_closed_kong_available(hands[cur_player], cur_tile))
     {
@@ -147,6 +153,7 @@ bool game::self_call_kong()
         mj_discard_tile(&hands[cur_player], cur_tile^0b10);
         mj_discard_tile(&hands[cur_player], cur_tile^0b11);
         mj_add_meld(&melds[cur_player], MJ_KONG_TRIPLE(MJ_TRIPLE(cur_tile,cur_player^0b01,cur_player^0b10)));
+        game_flags |= CLOSED_KONG_FLAG;
     }
     else
     {
@@ -159,14 +166,41 @@ bool game::self_call_kong()
 
 game::state_type game::call_tsumo()
 {
+    broadcast(msg::header::this_player_tsumo, cur_player);
+    broadcast(msg::header::this_player_hand, cur_player);
+    broadcast(msg::header::closed_hand, msg::START_STREAM);
+    for (auto *tile = hands[cur_player].tiles; 
+        tile < hands[cur_player].tiles+hands[cur_player].size; ++tile)
+        broadcast(msg::header::tile, *tile);
+    broadcast(msg::header::closed_hand, msg::END_STREAM);
+
     unsigned short yakus[MJ_YAKU_ARR_SIZE];
     int fu, fan;
     int seat_wind = (NUM_PLAYERS+cur_player-dealer)%NUM_PLAYERS;
+
+    memset(yakus, 0, sizeof(yakus));
+    yakus[MJ_YAKU_RICHII] = flags[cur_player] & (DOUBLE_RIICHI_FLAG | RIICHI_FLAG);
+    yakus[MJ_YAKU_IPPATSU] = (flags[cur_player] & IPPATSU_FLAG) ? 1 : 0;
+    yakus[MJ_YAKU_RINSHAN] = (game_flags & KONG_FLAG) ? 1 : 0;
+    yakus[MJ_YAKU_HAITEI] = wall.size() ? 0 : 1;
+
     int score = mj_score(&fu, &fan, yakus, &hands[cur_player], 
         &melds[cur_player], cur_tile, MJ_TRUE, prevailing_wind, seat_wind);
+    
     if (score)
     {
-        broadcast(msg::header::this_player_tsumo, cur_player);
+        broadcast(msg::header::fu_count, fu);
+        broadcast(msg::header::yaku_list, msg::START_STREAM);
+        for (int i = 0; i < MJ_YAKU_ARR_SIZE; ++i)
+        {
+            if (yakus[i])
+            {
+                broadcast(msg::header::winning_yaku, i);
+                broadcast(msg::header::yaku_fan_count, yakus[i]);
+            }
+        }
+        broadcast(msg::header::yaku_list, msg::END_STREAM);
+
         score += bonus_score;
         if (cur_player == dealer)
         {
@@ -175,7 +209,7 @@ game::state_type game::call_tsumo()
                 if (p == cur_player)
                     payment(p, 6*score+deposit);
                 else
-                    payment(p,-4*score);
+                    payment(p,-2*score);
             }
             return state_type::renchan;
         }
@@ -219,20 +253,27 @@ void game::play()
         case state_type::discard:
             cur_state = _timeout(DISCARD_TIMEOUT, discard, state_type::tsumogiri);
             break;
+        case state_type::opponent_call:
+            cur_state = _timeout(OPPONENT_CALL_TIMEOUT, opponent_call, state_type::tsumogiri);
+            break;
+        case state_type::after_kong:
+            new_dora();
+            cur_state = state_type::draw;
+            break;
+        case state_type::next:
+            next();
+            break;
+        case state_type::renchan:
+            renchan();
+            break;
+        case state_type::exhaustive_draw:
+            exhaustive_draw();
+            break;
         case state_type::tsumogiri:
             tsumogiri();
             break;
         case state_type::chombo:
             chombo_penalty();
-            break;
-        case state_type::opponent_call:
-            cur_state = _timeout(OPPONENT_CALL_TIMEOUT, opponent_call, state_type::tsumogiri);
-            break;
-        case state_type::next:
-            break;
-        case state_type::renchan:
-            break;
-        case state_type::exhaustive_draw:
             break;
         }
     }
@@ -267,6 +308,8 @@ void game::start_round()
         cur_player = (cur_player + 1) % NUM_PLAYERS;   
     }
 
+    first_turn = true;
+
     cur_state = state_type::draw;
 }
 
@@ -298,7 +341,7 @@ game::state_type game::self_call()
             broadcast(msg::header::this_player_riichi, cur_player);
             payment(cur_player, -MJ_RIICHI_DEPOSIT);
             deposit += MJ_RIICHI_DEPOSIT;
-            riichi[cur_player] = true;
+            flags[cur_player] |= RIICHI_FLAG;
             return state_type::discard;
 
         case msg::header::discard_tile:
@@ -323,9 +366,13 @@ game::state_type game::discard()
     msg::buffer buffer;
     auto discarded = msg::data<card_type>(buffer);
 
+    game_flags &= ~KONG_FLAG;
+
     if (msg::type(buffer) == msg::header::discard_tile && 
         mj_discard_tile(&hands[cur_player], discarded))
     {
+        if (discarded != cur_tile && flags[cur_player] & (DOUBLE_RIICHI_FLAG | RIICHI_FLAG))
+            return state_type::chombo;
         broadcast(msg::header::tile, discarded);
         cur_tile = discarded;
         return state_type::opponent_call;
@@ -340,7 +387,52 @@ game::state_type game::discard()
 }
 
 game::state_type game::opponent_call() 
-{} // TODO: implement this.
+{
+    // ron first
+    std::array<score_type, NUM_PLAYERS> score_if_ron;
+    std::array<std::array<unsigned short, MJ_YAKU_ARR_SIZE>, NUM_PLAYERS> yakus_if_ron {};
+
+    for (int p = 0; p < NUM_PLAYERS; ++p)
+    {
+    // iterate over all player
+        if (p == cur_player)
+            continue;
+    // if player is in furiten, continue because cannot ron
+        if (std::find_if(discards[p].begin(), discards[p].end(), 
+            [&](const card_type &c) { 
+                return MJ_ID_128(c) == MJ_ID_128(cur_tile); 
+            }) != discards[p].end()) continue;
+    
+    // create temp hand and add the ron tile to it
+        mj_hand tmp_hand;
+        memcpy(&tmp_hand, &hands[p], sizeof(mj_hand));
+        tmp_hand.tiles[tmp_hand.size++] = cur_tile;
+        mj_sort_hand(&tmp_hand);
+
+    // check if it can win
+        int fu, fan;
+        int seat_wind = (NUM_PLAYERS+p-dealer)%NUM_PLAYERS;
+
+        yakus_if_ron[p][MJ_YAKU_RICHII] = flags[p] & (DOUBLE_RIICHI_FLAG | RIICHI_FLAG);
+        yakus_if_ron[p][MJ_YAKU_IPPATSU] = (flags[p] & IPPATSU_FLAG) ? 1 : 0;
+        yakus_if_ron[p][MJ_YAKU_CHANKAN] = (game_flags & KONG_FLAG) ? 1 : 0;
+        yakus_if_ron[p][MJ_YAKU_HOUTEI] = wall.size() ? 0 : 1;
+
+        score_if_ron[p] = mj_score(&fu, &fan, yakus_if_ron[p].data(), &tmp_hand, 
+            &melds[p], cur_tile, MJ_FALSE, prevailing_wind, seat_wind);
+    }
+
+    // sort the players by priority. The player next to play is highest priority.
+    std::array<int, NUM_PLAYERS-1> priority_order = {
+        (cur_player+1)%NUM_PLAYERS, (cur_player+2)%NUM_PLAYERS, (cur_player+3)%NUM_PLAYERS
+    };
+
+    
+
+    if (1 /* there was a call */)
+    for (auto &p_flags : flags)
+        p_flags &= ~IPPATSU_FLAG;
+} // TODO: implement this.
 
 void game::next()
 {
@@ -362,21 +454,21 @@ void game::renchan()
 
 void game::exhaustive_draw()
 {
-    player_property_type tenpai;
+    std::array<bool, NUM_PLAYERS> tenpai;
     int players_tenpai = 0;
-    for (int i = 0; i < NUM_PLAYERS; ++i)
+    for (int p = 0; p < NUM_PLAYERS; ++p)
     {
-        if (mj_tenpai(hands[i], melds[i], nullptr))
+        if (mj_tenpai(hands[p], melds[p], nullptr))
         {
-            tenpai[i] = true;
+            tenpai[p] = true;
             ++players_tenpai;
         }
         else
         {
-            tenpai[i] = false;
-            if (riichi[i])
+            tenpai[p] = false;
+            if (flags[p] & (DOUBLE_RIICHI_FLAG | RIICHI_FLAG))
             {
-                cur_player = i;
+                cur_player = p;
                 cur_state = state_type::chombo;
                 return;
             }
@@ -386,16 +478,16 @@ void game::exhaustive_draw()
     switch(players_tenpai)
     {
     case 1:
-        for (int i = 0; i < NUM_PLAYERS; ++i)
-            payment(i, tenpai[i] ? 3000 : -1000);
+        for (int p = 0; p < NUM_PLAYERS; ++p)
+            payment(p, tenpai[p] ? 3000 : -1000);
         break;
     case 2:
-        for (int i = 0; i < NUM_PLAYERS; ++i)
-            payment(i, tenpai[i] ? 1500 : -1500);
+        for (int p = 0; p < NUM_PLAYERS; ++p)
+            payment(p, tenpai[p] ? 1500 : -1500);
         break;
     case 3:
-        for (int i = 0; i < NUM_PLAYERS; ++i)
-            payment(i, tenpai[i] ? 1000 : -3000);
+        for (int p = 0; p < NUM_PLAYERS; ++p)
+            payment(p, tenpai[p] ? 1000 : -3000);
         break;
     }
 
@@ -423,7 +515,7 @@ void game::tsumogiri()
 
 void game::chombo_penalty()
 {
-    if (heads_up)
+    if (game_flags & HEADS_UP_FLAG)
     {
         payment(cur_player, -MJ_MANGAN*2);
         payment(cur_player^0b1, -MJ_MANGAN*2);
@@ -455,11 +547,3 @@ void game::chombo_penalty()
 
     cur_state = state_type::start_round;
 }
-
-
-//         // check for ron
-//         if (std::find_if(p_discards.begin(),p_discards.end(),
-//         [this](card_type &discarded_tile) 
-//         {
-//             return MJ_ID_128(cur_tile) == MJ_ID_128(discarded_tile);
-//         }) == p_discards.end())

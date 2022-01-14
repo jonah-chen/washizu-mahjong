@@ -497,7 +497,7 @@ int mj_score(int *fu, int *fan, unsigned short *yakus,
     mj_meld result[MAX_RESULTS*4];
     mj_pair pairs[MAX_RESULTS];
     unsigned short m_yakus[MJ_YAKU_ARR_SIZE];
-
+    unsigned short best_yakus[MJ_YAKU_ARR_SIZE];
     mj_size n = mj_n_agari(*hand, *melds, result, pairs);
 
     if (n == 0)
@@ -506,7 +506,7 @@ int mj_score(int *fu, int *fan, unsigned short *yakus,
     int m_score = 0, m_fu = 0, m_fan = 0;
     for (mj_size i = 0; i < n; ++i)
     {
-        memset(m_yakus, 0, sizeof(m_yakus));
+        memcpy(m_yakus, yakus, sizeof(m_yakus));
         m_fu = mj_fu(yakus, result+(4*i), pairs[i], ron, tsumo, prevailing_wind, seat_wind);
         m_fan = mj_fan(yakus, result+(4*i), pairs[i], prevailing_wind, seat_wind);
 
@@ -515,9 +515,11 @@ int mj_score(int *fu, int *fan, unsigned short *yakus,
             m_score = mj_basic_score(m_fu, m_fan);
             *fu = m_fu;
             *fan = m_fan;
-            memcpy(yakus, m_yakus, sizeof(m_yakus));
+            memcpy(yakus, best_yakus, sizeof(m_yakus));
         }
     }
+
+    memcpy(best_yakus, yakus, sizeof(m_yakus));
     return m_score;
 }
 

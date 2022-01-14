@@ -104,19 +104,33 @@ class game
 public:
     static constexpr std::size_t NUM_PLAYERS = 4;
     static constexpr std::chrono::duration PING_FREQ = std::chrono::seconds(30);
+    
     static constexpr unsigned long  
         SELF_CALL_TIMEOUT       = 15000,
         DISCARD_TIMEOUT         = 15000,
         OPPONENT_CALL_TIMEOUT   = 15000;
+    
+    static constexpr unsigned short 
+        RIICHI_FLAG             = 0x0001,
+        DOUBLE_RIICHI_FLAG      = 0x0002,
+        IPPATSU_FLAG            = 0x0004;
+
+    static constexpr unsigned short
+        HEADS_UP_FLAG           = 0x0001,
+        FIRST_TURN_FLAG         = 0x0002,
+        CLOSED_KONG_FLAG        = 0x0004,
+        OTHER_KONG_FLAG         = 0x0008,
+        KONG_FLAG               = 0x000c;
+
 
 public:
     using protocall = asio::ip::tcp;
     using client_type = game_client<protocall::socket>;
     using players_type = std::array<client_type, NUM_PLAYERS>;
-    using player_property_type = std::array<bool, NUM_PLAYERS>;
     using spectators_type = std::vector<client_type>;
     using message_type = std::string;
     using io_type = asio::io_context;
+    using flag_type = unsigned short;
     using deck_type = deck;
     using card_type = typename deck_type::card_type;
     using score_type = int;
@@ -177,48 +191,36 @@ private:
     std::array<score_type, NUM_PLAYERS> scores {};
     std::array<discards_type, NUM_PLAYERS> discards {};
     std::vector<card_type> dora_tiles;
-    player_property_type riichi;
-    
+    std::array<flag_type, NUM_PLAYERS> flags;
+
+    flag_type game_flags;    
     int prevailing_wind { MJ_EAST };
     int dealer { 0 };
     int cur_player { 0 };
+    bool first_turn { true };
     state_type cur_state { state_type::start_round };
     card_type cur_tile { MJ_INVALID_TILE };
     score_type deposit {};
     score_type bonus_score {};
-
-    bool heads_up;
+    unsigned short round {};
 
     std::thread ping_thread;
     std::thread main_thread;
 
 private:
-    template<typename... Args>
-    std::size_t send(client_type &client, Args &&... args)
-    {
-        std::scoped_lock lock(client.mutex);
-        return asio::write(client.socket, args...);
-    }
 
-    template<typename... Args>
-    std::size_t recv(client_type &client, Args &&... args)
-    {
-        std::scoped_lock lock(client.mutex);
-        return asio::read(client.socket, args...);
-    }
 
-    void reshuffle();
-
-    call_type call() const;
-
+private:
     void ping_client(client_type &client);
-
 
     /* handle different states */
     void start_round();
     state_type self_call();
     state_type discard(); /* wait for tile to recieved by server */
     state_type opponent_call();
+
+    void after_kong();
+    /* End game state */
     void next();
     void renchan();
     void exhaustive_draw();
@@ -236,6 +238,4 @@ private:
     bool self_call_kong();
 
     state_type call_tsumo();
-
-    state_type after_draw();
 };
