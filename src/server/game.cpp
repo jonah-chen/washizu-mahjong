@@ -7,13 +7,14 @@
 game::game(std::ostream &server_log, std::ostream &game_log, players_type &&players, bool heads_up)
     : server_log(server_log), game_log(game_log), players(std::move(players))
 {
-    reshuffle();
-
     for (int pos = 0; pos < NUM_PLAYERS; ++pos)
         players[pos].send(msg::header::your_position, pos);
 
     ping_thread = std::thread(ping);
     ping_thread.detach();
+
+    main_thread = std::thread(play);
+    main_thread.detach();
 }
 
 inline void game::accept_spectator(protocall::socket &&socket)

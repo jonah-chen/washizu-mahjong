@@ -191,6 +191,7 @@ private:
     score_type bonus_score {};
 
     std::thread ping_thread;
+    std::thread main_thread;
 
 private:
     template<typename... Args>
