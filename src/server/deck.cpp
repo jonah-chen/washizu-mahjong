@@ -1,5 +1,5 @@
 #include "deck.hpp"
-
+#include <algorithm>
 deck::deck()
 {
     reset();

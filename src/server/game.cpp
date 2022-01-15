@@ -19,6 +19,7 @@ game::game(std::ostream &server_log, std::ostream &game_log, players_type &&play
 
 inline void game::accept_spectator(protocall::socket &&socket)
 {
+    std::scoped_lock lock(spectator_mutex);
     spectators.emplace_back(std::move(socket));
 }
 
@@ -41,7 +42,10 @@ void game::ping_client(client_type &client)
         return;
     
     msg::buffer buffer;
+
+    rng_mutex.lock();
     unsigned short lucky_number = wall.tiger();
+    rng_mutex.unlock();
 
     auto to_terminate = [&client,&buffer,lucky_number](){
         client.recv(buffer, msg::BUFFER_SIZE);
@@ -66,26 +70,25 @@ void game::ping()
     while (true)
     {
         std::this_thread::sleep_for(PING_FREQ);
-
-        // if spectators don't reconnect before the next ping, they are removed
-        for (auto it = spectators.begin(); it != spectators.end();)
-        {
-            if (!it->socket.is_open())
-                it = spectators.erase(it);
-            else
-                ++it;
-        }
+    
+    // if spectators don't reconnect before the next ping, they are removed
+        spectators.remove_if([](const client_type &client){
+            return !client.socket.is_open();
+        });
 
         for (auto &client : players)
         {
             std::thread ping_thread(&game::ping_client, this, std::ref(client));
             ping_thread.detach();
         }
+
+        spectator_mutex.lock();
         for (auto &client : spectators)
         {
             std::thread ping_thread(&game::ping_client, this, std::ref(client));
             ping_thread.detach();
         }
+        spectator_mutex.unlock();
     }
 }
 
@@ -97,7 +100,10 @@ void game::log(std::ostream &os, const std::string &msg)
 /* helpers */
 void game::draw()
 {
+    rng_mutex.lock();
     auto tile = wall();
+    rng_mutex.unlock();
+
     if (tile == MJ_INVALID_TILE)
     {
         cur_state = state_type::exhaustive_draw;
@@ -125,7 +131,10 @@ void game::draw()
 
 void game::new_dora()
 {
+    rng_mutex.lock();
     dora_tiles.push_back(wall.draw_dora());
+    rng_mutex.unlock();
+
     broadcast(msg::header::dora_indicator, dora_tiles.back());
 }
 
@@ -275,6 +284,8 @@ void game::play()
         case state_type::chombo:
             chombo_penalty();
             break;
+        default:
+            break;
         }
     }
 }
@@ -298,7 +309,9 @@ void game::start_round()
     
     cur_tile = MJ_INVALID_TILE;
 
+    rng_mutex.lock();
     wall.reset();
+    rng_mutex.unlock();
 
     cur_player = dealer;
     for (int i = 0; i < NUM_PLAYERS; ++i)
@@ -399,8 +412,8 @@ game::state_type game::opponent_call()
             continue;
     // if player is in furiten, continue because cannot ron
         if (std::find_if(discards[p].begin(), discards[p].end(), 
-            [&](const card_type &c) { 
-                return MJ_ID_128(c) == MJ_ID_128(cur_tile); 
+            [&](const card_type &tile) { 
+                return MJ_ID_128(tile) == MJ_ID_128(cur_tile); 
             }) != discards[p].end()) continue;
     
     // create temp hand and add the ron tile to it
@@ -424,7 +437,9 @@ game::state_type game::opponent_call()
 
     // sort the players by priority. The player next to play is highest priority.
     std::array<int, NUM_PLAYERS-1> priority_order = {
-        (cur_player+1)%NUM_PLAYERS, (cur_player+2)%NUM_PLAYERS, (cur_player+3)%NUM_PLAYERS
+        static_cast<int>((cur_player+1)%NUM_PLAYERS),
+        static_cast<int>((cur_player+2)%NUM_PLAYERS),
+        static_cast<int>((cur_player+3)%NUM_PLAYERS)
     };
 
 
@@ -549,4 +564,10 @@ void game::chombo_penalty()
 }
 
 template<typename SocketType>
-game_client<SocketType>::id_type game_client<SocketType>::_counter = 8000;
+typename game_client<SocketType>::id_type game_client<SocketType>::_counter = 8000;
+
+
+int main()
+{
+    printf("Hello World!\n");
+}

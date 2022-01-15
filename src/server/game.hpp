@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <array>
+#include <list>
 #include <vector>
 
 template<typename SocketType>
@@ -27,7 +28,7 @@ struct game_client
         : socket(std::move(other.socket)), uid(other.uid) {}
 
     inline bool operator==(const game_client &other) const { return uid == other.uid; }
-
+    inline bool operator!=(const game_client &other) const { return uid != other.uid; }
     template <typename ObjType>
     std::size_t send(msg::header header, ObjType obj)
     {
@@ -127,7 +128,7 @@ public:
     using protocall = asio::ip::tcp;
     using client_type = game_client<protocall::socket>;
     using players_type = std::array<client_type, NUM_PLAYERS>;
-    using spectators_type = std::vector<client_type>;
+    using spectators_type = std::list<client_type>;
     using message_type = std::string;
     using io_type = asio::io_context;
     using flag_type = unsigned short;
@@ -206,8 +207,8 @@ private:
 
     std::thread ping_thread;
     std::thread main_thread;
-
-private:
+    std::mutex spectator_mutex;
+    std::mutex rng_mutex;
 
 
 private:

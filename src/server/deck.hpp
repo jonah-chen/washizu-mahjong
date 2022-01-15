@@ -1,9 +1,8 @@
 #pragma once
 
 #include "mahjong/mahjong.h"
-#include <random>
 #include <deque>
-
+#include <random>
 class deck
 {
 public:
@@ -15,8 +14,6 @@ public:
     
     deck(deck const &) = delete;
     deck &operator=(deck const &) = delete;
-
-    deck(deck &&) = default;
 
     void reset();
 
