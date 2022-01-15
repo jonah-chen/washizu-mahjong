@@ -4,8 +4,17 @@
 #include <algorithm>
 #include <chrono>
 
+/**
+ * The constructor:
+ * creates the references for the server and game log,
+ * moves the sockets for the players,
+ * sets the flags for the begining of the game,
+ * sends the initial positions of each player to player,
+ * begins the ping thread (on hold),
+ * and then begins the main thread in the start state.
+ */
 game::game(std::ostream &server_log, std::ostream &game_log, players_type &&players, bool heads_up)
-    : server_log(server_log), game_log(game_log), players(std::move(players))
+    : server_log(server_log), game_log(game_log), players(std::move(players)), game_flags(heads_up ? HEADS_UP_FLAG : 0)
 {
     for (int pos = 0; pos < NUM_PLAYERS; ++pos)
         players[pos].send(msg::header::your_position, pos);
@@ -17,12 +26,20 @@ game::game(std::ostream &server_log, std::ostream &game_log, players_type &&play
     main_thread.detach();
 }
 
+/**
+ * Accept Spectator by locking the spectator list first before
+ * emplacing the new client as a spectator.
+ */
 inline void game::accept_spectator(protocall::socket &&socket)
 {
     std::scoped_lock lock(spectator_mutex);
     spectators.emplace_back(std::move(socket));
 }
 
+/**
+ * Perform a reconnection by checking if the original socket is closed.
+ * If so, it will reconnect the player. Otherwise, it does nothing.
+ */
 void game::reconnect(unsigned short uid, protocall::socket &&socket)
 {
     for (auto &player : players)
@@ -30,12 +47,21 @@ void game::reconnect(unsigned short uid, protocall::socket &&socket)
         if (player.uid == uid && !player.socket.is_open())
         {
             player.socket = std::move(socket);
-            log(server_log, "Player " + std::to_string(uid) + " reconnected.");
+            server_log << "Player " << std::to_string(uid) << " reconnected.";
             return;
         }
     }
 }
 
+/**
+ * Ping a particular client by first attempting to locks the RNG to generating 
+ * the random number.
+ * 
+ * It then attempts to acquire the lock for the client to send it the ping with
+ * the random number, and waits for the response. 
+ * If there was no response within the set PING_TIMEOUT, it will close the 
+ * client's socket and log the disconnection to the server log.
+ */
 void game::ping_client(client_type &client)
 {
     if (!client.socket.is_open())
@@ -43,9 +69,9 @@ void game::ping_client(client_type &client)
     
     msg::buffer buffer;
 
-    rng_mutex.lock();
+    std::unique_lock rng_lock(rng_mutex);
     unsigned short lucky_number = wall.tiger();
-    rng_mutex.unlock();
+    rng_lock.unlock();
 
     auto to_terminate = [&client,&buffer,lucky_number](){
         client.recv(buffer, msg::BUFFER_SIZE);
@@ -57,14 +83,23 @@ void game::ping_client(client_type &client)
 
     client.send(msg::header::ping, lucky_number);
 
-    if (_timeout(1000, to_terminate, true))
+    if (_timeout(PING_TIMEOUT, to_terminate, true))
     {
-        log(server_log, "Client with UID=" + std::to_string(client.uid) + " @" + 
-            client.socket.remote_endpoint().address().to_string() + " timed out.");
+        server_log << "Client with UID=" << std::to_string(client.uid) << " @" << 
+            client.socket.remote_endpoint().address().to_string() << " timed out.";
         client.socket.close();
     }
 }
 
+/**
+ * The method that runs the ping thread. The thread will run periodically
+ * and starts by waiting. Then, it will remove any spectators that have their
+ * sockets closed. Then, it will ping all the players and spectators on their
+ * own threads using ping_client.
+ * 
+ * When accessing the spectator list, it will lock it first to ensure that
+ * no other thread is modifying it.
+ */
 void game::ping()
 {
     while (true)
@@ -82,27 +117,41 @@ void game::ping()
             ping_thread.detach();
         }
 
-        spectator_mutex.lock();
+        std::unique_lock lock(spectator_mutex);
         for (auto &client : spectators)
         {
             std::thread ping_thread(&game::ping_client, this, std::ref(client));
             ping_thread.detach();
         }
-        spectator_mutex.unlock();
+        lock.unlock();
     }
 }
 
-void game::log(std::ostream &os, const std::string &msg)
-{
-    os << msg << '\n';
-}
+/******************************************************************************/
 
-/* helpers */
+/**
+ * Draws a random tile from the wall by first locking the RNG.
+ * 
+ * If the tile is MJ_INVALID_TILE, that means the game is over and it is an
+ * exhaustive draw tie.
+ * If there are not eough tiles in the wall for it to still be the first turn, 
+ * it will update the first turn flag.
+ * It also updates the Ippatsu flag, because the turn has gotten around once
+ * to the player who called riichi.
+ * 
+ * It will first broadcast the player who drew the tile to everyone.
+ * Then, it will broadcast the tile to everyone if it is transparent.
+ * If it is opaque, the tile will be sent to the player who drew it only, and
+ * everyone else will receive a MJ_INVALID_TILE to indicate that the tile
+ * was opaque.
+ * 
+ * It then sets the current tile state to the tile that was drawn.
+ */
 void game::draw()
 {
-    rng_mutex.lock();
+    std::unique_lock lock(rng_mutex);
     auto tile = wall();
-    rng_mutex.unlock();
+    lock.unlock();
 
     if (tile == MJ_INVALID_TILE)
     {
@@ -129,11 +178,15 @@ void game::draw()
     cur_tile = tile;
 }
 
+/**
+ * Draws a new dora and broadcasts it to everyone. This does not change the
+ * number of live tiles in the wall.
+ */
 void game::new_dora()
 {
-    rng_mutex.lock();
+    std::unique_lock lock(rng_mutex);
     dora_tiles.push_back(wall.draw_dora());
-    rng_mutex.unlock();
+    lock.unlock();
 
     broadcast(msg::header::dora_indicator, dora_tiles.back());
 }
@@ -193,6 +246,22 @@ game::state_type game::call_tsumo()
     yakus[MJ_YAKU_RINSHAN] = (game_flags & KONG_FLAG) ? 1 : 0;
     yakus[MJ_YAKU_HAITEI] = wall.size() ? 0 : 1;
 
+    if (yakus[MJ_YAKU_RICHII])
+    {
+        auto doras = dora_tiles.size();
+        for (int i = 0; i < doras; ++i)
+            dora_tiles.push_back(wall.draw_dora());
+    }
+
+    for (auto &indicator : dora_tiles)
+    {
+        yakus[MJ_YAKU_DORA] += std::count_if(hands[cur_player].tiles, 
+        hands[cur_player].tiles+hands[cur_player].size, 
+        [indicator](const card_type &tile){
+            return calc_dora(indicator) == MJ_ID_128(tile);
+        });
+    }
+
     int score = mj_score(&fu, &fan, yakus, &hands[cur_player], 
         &melds[cur_player], cur_tile, MJ_TRUE, prevailing_wind, seat_wind);
     
@@ -216,9 +285,9 @@ game::state_type game::call_tsumo()
             for (int p = 0; p < NUM_PLAYERS; ++p)
             {
                 if (p == cur_player)
-                    payment(p, 6*score+deposit);
+                    payment(p, 6*score+ deposit + 3*bonus_score);
                 else
-                    payment(p,-2*score);
+                    payment(p, -2*score - bonus_score);
             }
             return state_type::renchan;
         }
@@ -227,11 +296,11 @@ game::state_type game::call_tsumo()
             for (int p = 0; p < NUM_PLAYERS; ++p)
             {
                 if (p == cur_player)
-                    payment(p, 4*score+deposit);
+                    payment(p, 4*score+ deposit + 3*bonus_score);
                 else if (p == dealer)
-                    payment(p,-2*score);
+                    payment(p,-2*score - bonus_score);
                 else
-                    payment(p,-score);
+                    payment(p,-score - bonus_score);
             }
             return state_type::next;
         }
@@ -342,8 +411,9 @@ game::state_type game::self_call()
             else
             {
                 players[cur_player].send(msg::header::reject, msg::REJECT);
-                log(server_log, "Player with UID=" + std::to_string(players[cur_player].uid) + " @" + 
-                    players[cur_player].socket.remote_endpoint().address().to_string() + " called an invalid kong.");
+                server_log << "Player with UID=" << std::to_string(players[cur_player].uid) 
+                    << " @" << players[cur_player].socket.remote_endpoint().address().to_string() 
+                    << " called an invalid kong.";
                 break; /* from switch, try again */
             }
 
@@ -393,23 +463,29 @@ game::state_type game::discard()
     else
     {
         players[cur_player].send(msg::header::reject, msg::REJECT);
-        log(server_log, "Player with UID=" + std::to_string(players[cur_player].uid) + " @" + 
-            players[cur_player].socket.remote_endpoint().address().to_string() + " discarded an invalid tile.");
+        server_log << "Player with UID=" << std::to_string(players[cur_player].uid) << 
+        " @" << players[cur_player].socket.remote_endpoint().address().to_string() <<
+         " discarded an invalid tile.";
         return state_type::tsumogiri;
     }
 }
 
 game::state_type game::opponent_call() 
 {
-    // ron first
-    std::array<score_type, NUM_PLAYERS> score_if_ron;
-    std::array<std::array<unsigned short, MJ_YAKU_ARR_SIZE>, NUM_PLAYERS> yakus_if_ron {};
+    // sort the players by priority. The player next to play is highest priority.
+    std::array<int, NUM_PLAYERS-1> priority_order = {
+        static_cast<int>((cur_player+1)%NUM_PLAYERS),
+        static_cast<int>((cur_player+2)%NUM_PLAYERS),
+        static_cast<int>((cur_player+3)%NUM_PLAYERS)
+    };
 
-    for (int p = 0; p < NUM_PLAYERS; ++p)
+    std::array<score_type, NUM_PLAYERS> fu_if_ron{}, fan_if_ron{};
+    std::array<std::array<unsigned short, MJ_YAKU_ARR_SIZE>, NUM_PLAYERS> yakus_if_ron {};
+    std::array<bool, NUM_PLAYERS> pong_possible{};
+    bool chow_possible = static_cast<bool>(mj_chow_available(hands[cur_player], cur_tile, nullptr));
+    
+    for (auto const &p : priority_order)
     {
-    // iterate over all player
-        if (p == cur_player)
-            continue;
     // if player is in furiten, continue because cannot ron
         if (std::find_if(discards[p].begin(), discards[p].end(), 
             [&](const card_type &tile) { 
@@ -423,7 +499,6 @@ game::state_type game::opponent_call()
         mj_sort_hand(&tmp_hand);
 
     // check if it can win
-        int fu, fan;
         int seat_wind = (NUM_PLAYERS+p-dealer)%NUM_PLAYERS;
 
         yakus_if_ron[p][MJ_YAKU_RICHII] = flags[p] & (DOUBLE_RIICHI_FLAG | RIICHI_FLAG);
@@ -431,22 +506,141 @@ game::state_type game::opponent_call()
         yakus_if_ron[p][MJ_YAKU_CHANKAN] = (game_flags & KONG_FLAG) ? 1 : 0;
         yakus_if_ron[p][MJ_YAKU_HOUTEI] = wall.size() ? 0 : 1;
 
-        score_if_ron[p] = mj_score(&fu, &fan, yakus_if_ron[p].data(), &tmp_hand, 
+        mj_score(&fu_if_ron[p], &fan_if_ron[p], yakus_if_ron[p].data(), &tmp_hand, 
             &melds[p], cur_tile, MJ_FALSE, prevailing_wind, seat_wind);
+
+    // check if pong is possible
+        pong_possible[p] = mj_pong_available(hands[p], cur_tile) || mj_kong_available(hands[p], cur_tile);
     }
 
-    // sort the players by priority. The player next to play is highest priority.
-    std::array<int, NUM_PLAYERS-1> priority_order = {
-        static_cast<int>((cur_player+1)%NUM_PLAYERS),
-        static_cast<int>((cur_player+2)%NUM_PLAYERS),
-        static_cast<int>((cur_player+3)%NUM_PLAYERS)
-    };
+    std::array<std::future<msg::buffer>,NUM_PLAYERS> future_buffer;
+    std::array<msg::buffer, NUM_PLAYERS> buffer;
 
+    for (auto const &p : priority_order)
+    {
+        if (fan_if_ron[p] || pong_possible[p] || p==priority_order.front() && chow_possible)
+        {
+            future_buffer[p] = std::async(&client_type::recv_default, &players[p]);
+        }
+    }
+    // ron is first priority
+    for (auto const &p : priority_order)
+    {
+        if (fan_if_ron[p])
+        {
+            buffer[p] = future_buffer[p].get();
+            if (msg::type(buffer[p]) == msg::header::call_ron)
+            {
+                broadcast(msg::header::this_player_ron, p);
+    // count the doras
+                if (yakus_if_ron[p][MJ_YAKU_RICHII])
+                {
+                    auto doras = dora_tiles.size();
+                    for (int i = 0; i < doras; ++i)
+                        dora_tiles.push_back(wall.draw_dora());
+                }
 
+                for (auto &indicator : dora_tiles)
+                {
+                    yakus_if_ron[p][MJ_YAKU_DORA] += std::count_if(hands[cur_player].tiles, 
+                    hands[cur_player].tiles+hands[cur_player].size, 
+                    [indicator](const card_type &tile){
+                        return calc_dora(indicator) == MJ_ID_128(tile);
+                    });
+                }
 
-    if (1 /* there was a call */)
-    for (auto &p_flags : flags)
-        p_flags &= ~IPPATSU_FLAG;
+                score_type b_score = mj_basic_score(fu_if_ron[p], fan_if_ron[p]+yakus_if_ron[p][MJ_YAKU_DORA]);
+
+                broadcast(msg::header::this_player_hand, p);
+                broadcast(msg::header::closed_hand, msg::START_STREAM);
+                for (auto *i = hands[p].tiles; i < hands[p].tiles+hands[p].size; ++i)
+                    broadcast(msg::header::tile, *i);
+                broadcast(msg::header::closed_hand, msg::END_STREAM);
+
+                broadcast(msg::header::fu_count, fu_if_ron[p]);
+                broadcast(msg::header::yaku_list, msg::START_STREAM);
+                for (int i = 0; i < MJ_YAKU_ARR_SIZE; ++i)
+                {
+                    broadcast(msg::header::winning_yaku, i);
+                    broadcast(msg::header::yaku_fan_count, yakus_if_ron[p][i]);
+                }
+                broadcast(msg::header::yaku_list, msg::END_STREAM);
+
+                for (auto &p_flags : flags)
+                    p_flags &= ~IPPATSU_FLAG;
+
+                if (p == dealer)
+                {
+                    payment(p, b_score*6 + deposit + bonus_score*3);
+                    payment(cur_player, -b_score*6 - bonus_score*3);
+                    return state_type::renchan;
+                }
+                else
+                {
+                    payment(p, b_score*4 + deposit + bonus_score*3);
+                    payment(cur_player, -b_score*4 - bonus_score*3);
+                    return state_type::next;
+                }
+            }
+        }
+    }
+    // pong is second priority
+    for (auto const &p : priority_order)
+    {
+        if (pong_possible[p])
+        {
+            if (future_buffer[p].valid())
+                buffer[p] = future_buffer[p].get();
+            if (msg::type(buffer[p]) == msg::header::call_pong)
+            {
+                broadcast(msg::header::this_player_pong, p);
+                broadcast(msg::header::tile, 0/*Pong tile 1*/);
+                broadcast(msg::header::tile, 0/*Pong tile 2*/);
+                
+                // TODO: make the pong
+
+                cur_player = p;
+
+                for (auto &p_flags : flags)
+                    p_flags &= ~IPPATSU_FLAG;
+                return state_type::discard;
+            }
+            else if (msg::type(buffer[p]) == msg::header::call_kong)
+            {
+                broadcast(msg::header::this_player_kong, p);
+                broadcast(msg::header::tile, 0/*Kong tile*/);
+                broadcast(msg::header::tile, 0/*Kong tile*/);
+                broadcast(msg::header::tile, 0/*Kong tile*/);
+
+                // TODO: make the kong
+                game_flags |= OTHER_KONG_FLAG;
+                cur_player = p;
+
+                for (auto &p_flags : flags)
+                    p_flags &= ~IPPATSU_FLAG;
+                return state_type::after_kong;
+            }
+        }
+    }
+
+    // chow is third priority
+    if (chow_possible)
+    {
+        if (future_buffer[priority_order.front()].valid())
+            buffer[priority_order.front()] = future_buffer[priority_order.front()].get();
+        if (msg::type(buffer[priority_order.front()]) == msg::header::call_chow)
+        {
+            broadcast(msg::header::this_player_chow, priority_order.front());
+            broadcast(msg::header::tile, 0/*Chow tile 1*/);
+            broadcast(msg::header::tile, 0/*Chow tile 2*/);
+            
+            cur_player = priority_order.front();
+
+            for (auto &p_flags : flags)
+                p_flags &= ~IPPATSU_FLAG;
+            return state_type::discard;
+        }
+    }
 } // TODO: implement this.
 
 void game::next()
@@ -563,9 +757,21 @@ void game::chombo_penalty()
     cur_state = state_type::start_round;
 }
 
+mj_id game::calc_dora(const game::card_type &tile)
+{
+    switch(MJ_SUIT(tile))
+    {
+    case MJ_WIND:
+        return MJ_128_TILE(MJ_WIND, (MJ_ID_128(tile) + 1) % 4);
+    case MJ_DRAGON:
+        return MJ_128_TILE(MJ_DRAGON, (MJ_ID_128(tile) + 1) % 3);
+    default:
+        return MJ_128_TILE(MJ_SUIT(tile), (MJ_ID_128(tile) + 1) % 9);
+    }
+} 
+
 template<typename SocketType>
 typename game_client<SocketType>::id_type game_client<SocketType>::_counter = 8000;
-
 
 int main()
 {

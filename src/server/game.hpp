@@ -24,8 +24,17 @@ struct game_client
     
     game_client(socket_type &&socket)
         : socket(std::move(socket)), uid(_counter) { ++_counter; }
+
+    game_client(game_client const &) = delete;
+    
     game_client(game_client &&other)
         : socket(std::move(other.socket)), uid(other.uid) {}
+
+    ~game_client() 
+    {
+        if (socket.is_open())
+            socket.close();
+    }
 
     inline bool operator==(const game_client &other) const { return uid == other.uid; }
     inline bool operator!=(const game_client &other) const { return uid != other.uid; }
@@ -38,6 +47,13 @@ struct game_client
     std::size_t recv(Args &&... args)
     {
         return asio::read(socket, asio::buffer(args...));
+    }
+
+    msg::buffer recv_default()
+    {
+        msg::buffer buffer;
+        asio::read(socket, asio::buffer(buffer, msg::BUFFER_SIZE));
+        return buffer;
     }
 
 private:
@@ -109,7 +125,8 @@ public:
     static constexpr unsigned long  
         SELF_CALL_TIMEOUT       = 15000,
         DISCARD_TIMEOUT         = 15000,
-        OPPONENT_CALL_TIMEOUT   = 15000;
+        OPPONENT_CALL_TIMEOUT   = 15000,
+        PING_TIMEOUT            = 1000;
     
     static constexpr unsigned short 
         RIICHI_FLAG             = 0x0001,
@@ -177,7 +194,7 @@ public:
 
     void play();
 
-    void log(std::ostream &os, const std::string &msg);
+    static mj_id calc_dora(const card_type &indicator);
 
 private:
     std::ostream &server_log, &game_log;

@@ -141,7 +141,9 @@ mj_size mj_chow_available(mj_hand hand, mj_tile const tile, mj_pair *chow_tiles)
             {
                 if (MJ_NUMBER(*j) == MJ_NUMBER(tile) + difference)
                 {
-                    chow_tiles[chows++] = MJ_PAIR(*i, *j);
+                    if (chow_tiles)
+                        chow_tiles[chows] = MJ_PAIR(*i, *j);
+                    ++chows;
                 }
             }
         }

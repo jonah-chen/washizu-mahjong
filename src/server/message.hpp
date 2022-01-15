@@ -15,10 +15,10 @@ namespace msg
 using id_type = unsigned short;
 
 static constexpr id_type 
-    PLAYER = 0x3f3f,
-    REJECT = 0x8088,
-    START_STREAM = 0xa000,
-    END_STREAM = 0xa001;
+    PLAYER          = 0x3f3f,
+    REJECT          = 0x8088,
+    START_STREAM    = 0xa000,
+    END_STREAM      = 0xa001;
 
 enum class header : char
 {
@@ -34,6 +34,7 @@ enum class header : char
     call_ron                = '*', /* uid */
     call_tsumo              = '+', /* uid */
     ask_for_draw            = 'd', /* uid */
+    pass                    = 'q', /* uid */
 
     ping                    = ';', /* random number (16 bit) */
     
