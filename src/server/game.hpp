@@ -82,7 +82,7 @@ enum class turn_state {
     tsumogiri,
     chombo,
     abort,
-    timeout,
+    opp_call_timeout,
 };
 
 

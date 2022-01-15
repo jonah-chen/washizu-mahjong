@@ -27,6 +27,7 @@ enum class header : char
     join_as_spectator       = 's', /* game id */
     draw_tile               = 'd', /* uid */
     discard_tile            = 't', /* 9-bit tile unique ID */
+    call_with_tile          = 'w', /* 9-bit tile unique ID */
     call_pong               = '3', /* uid */
     call_chow               = 'c', /* uid */
     call_kong               = '4', /* uid */
@@ -34,7 +35,7 @@ enum class header : char
     call_ron                = '*', /* uid */
     call_tsumo              = '+', /* uid */
     ask_for_draw            = 'd', /* uid */
-    pass                    = 'q', /* uid */
+    pass_calls              = 'n', /* uid */
 
     ping                    = ';', /* random number (16 bit) */
     

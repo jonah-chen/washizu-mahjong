@@ -12,7 +12,8 @@ add_library(Mahjong STATIC src/mahjong/mahjong.c src/mahjong/mahjong.h
     src/mahjong/interaction.h)
 
 add_executable(TestMahjong src/mahjong/test.c)
-add_executable(Server src/server/deck.hpp src/server/deck.cpp src/server/game.hpp src/server/game.cpp)
+add_executable(Server src/server/deck.hpp src/server/deck.cpp 
+    src/server/game.hpp src/server/game.cpp)
 
 target_link_libraries(TestMahjong PRIVATE Mahjong)
-target_link_libraries(Server PRIVATE Mahjong)
+target_link_libraries(Server PRIVATE Mahjong pthread)
