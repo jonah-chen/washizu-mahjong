@@ -33,11 +33,10 @@ ReturnType _timeout(unsigned long ms, Func function, ReturnType if_timeout, Args
     });
 
     worker.detach();
-
+    
     std::unique_lock lock(mutex);
     if (cv.wait_for(lock, std::chrono::milliseconds(ms))==std::cv_status::timeout)
         return if_timeout;
-
     return return_value;
 }
 

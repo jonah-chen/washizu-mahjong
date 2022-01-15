@@ -7,7 +7,7 @@
 #define ASIO_STANDALONE
 #include <asio.hpp>
 
-#include <iostream>
+#include <fstream>
 #include <array>
 #include <list>
 #include <vector>
@@ -21,9 +21,12 @@ struct game_client
     id_type uid;
     socket_type socket;
     std::mutex mutex;
-    
+
     game_client(socket_type &&socket)
-        : socket(std::move(socket)), uid(_counter) { ++_counter; }
+        : socket(std::move(socket)), uid(next_uid()) {
+
+
+    }
 
     game_client(game_client const &) = delete;
     
@@ -36,17 +39,28 @@ struct game_client
             socket.close();
     }
 
+    static id_type next_uid() 
+    {
+        static id_type counter = 8000;
+        return counter++;
+    } 
+    
     inline bool operator==(const game_client &other) const { return uid == other.uid; }
     inline bool operator!=(const game_client &other) const { return uid != other.uid; }
     template <typename ObjType>
     std::size_t send(msg::header header, ObjType obj)
     {
-        return asio::write(socket, asio::buffer(msg::buffer_data(header, obj), msg::BUFFER_SIZE));
+        std::scoped_lock<std::mutex> lock(mutex);
+        return socket.send(asio::buffer(msg::buffer_data(header, obj), msg::BUFFER_SIZE));
     }
     template<typename... Args>
-    std::size_t recv(Args &&... args)
+    msg::buffer recv(Args &&... args)
     {
-        return asio::read(socket, asio::buffer(args...));
+        std::mutex m;
+        recv_cond.wait(m, [&]() { return recv_buffer.size() > 0; });
+        msg::buffer ret = recv_queue.front();
+        recv_queue.pop_front();
+        return ret;
     }
 
     msg::buffer recv_default()
@@ -57,7 +71,20 @@ struct game_client
     }
 
 private:
-    static id_type _counter;
+    std::deque<msg::buffer> recv_queue;
+    std::thread recv_thread;
+    std::condition_variable recv_cond;
+
+    void recv_loop()
+    {
+        while (socket.is_open())
+        {
+            msg::buffer buffer;
+            asio::read(socket, asio::buffer(buffer, msg::BUFFER_SIZE));
+            recv_queue.push_back(buffer);
+            recv_cond.notify_one();
+        }
+    }
 };
 
 enum class turn_state {
@@ -82,7 +109,7 @@ enum class turn_state {
     tsumogiri,
     chombo,
     abort,
-    opp_call_timeout,
+    timeout,
 };
 
 
@@ -120,12 +147,12 @@ class game
 {
 public:
     static constexpr std::size_t NUM_PLAYERS = 4;
-    static constexpr std::chrono::duration PING_FREQ = std::chrono::seconds(30);
+    static constexpr std::chrono::duration PING_FREQ = std::chrono::seconds(15);
     
     static constexpr unsigned long  
-        SELF_CALL_TIMEOUT       = 15000,
-        DISCARD_TIMEOUT         = 15000,
-        OPPONENT_CALL_TIMEOUT   = 15000,
+        SELF_CALL_TIMEOUT       = 1500,
+        DISCARD_TIMEOUT         = 1500,
+        OPPONENT_CALL_TIMEOUT   = 1500,
         PING_TIMEOUT            = 1000;
     
     static constexpr unsigned short 
@@ -144,7 +171,7 @@ public:
 public:
     using protocall = asio::ip::tcp;
     using client_type = game_client<protocall::socket>;
-    using players_type = std::array<client_type, NUM_PLAYERS>;
+    using players_type = std::vector<client_type>;
     using spectators_type = std::list<client_type>;
     using message_type = std::string;
     using io_type = asio::io_context;
@@ -159,9 +186,10 @@ public:
     };
 
 public:
-    game(std::ostream &server_log, std::ostream &game_log, players_type &&players, bool heads_up);
+    game(std::ostream &server_log, std::string const &game_log_file, 
+        players_type &&players, bool heads_up);
 
-    ~game();
+    ~game() = default;
 
     /**
      * Perform the ping. If ping cannot be recieved, the client will be disconnected.
@@ -197,7 +225,8 @@ public:
     static mj_id calc_dora(const card_type &indicator);
 
 private:
-    std::ostream &server_log, &game_log;
+    std::ostream &server_log;
+    std::ofstream game_log;
 
     players_type players;
     spectators_type spectators;

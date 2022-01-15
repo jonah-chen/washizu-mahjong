@@ -15,7 +15,7 @@ namespace msg
 using id_type = unsigned short;
 
 static constexpr id_type 
-    PLAYER          = 0x3f3f,
+    NEW_PLAYER      = 0x3f3f,
     REJECT          = 0x8088,
     START_STREAM    = 0xa000,
     END_STREAM      = 0xa001;

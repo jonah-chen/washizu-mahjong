@@ -13,10 +13,10 @@
  * begins the ping thread (on hold),
  * and then begins the main thread in the start state.
  */
-game::game(std::ostream &server_log, std::ostream &game_log, 
-    players_type &&players, bool heads_up)
-        : server_log(server_log), game_log(game_log), 
-        players(std::move(players)), game_flags(heads_up ? HEADS_UP_FLAG : 0)
+game::game(std::ostream &server_log, std::string const &game_log_dir, 
+    players_type &&_players, bool heads_up)
+        : server_log(server_log), game_log(game_log_dir), 
+        players(std::move(_players)), game_flags(heads_up ? HEADS_UP_FLAG : 0)
 {
     for (int pos = 0; pos < NUM_PLAYERS; ++pos)
         players[pos].send(msg::header::your_position, pos);
@@ -32,7 +32,7 @@ game::game(std::ostream &server_log, std::ostream &game_log,
  * Accept Spectator by locking the spectator list first before
  * emplacing the new client as a spectator.
  */
-inline void game::accept_spectator(protocall::socket &&socket)
+void game::accept_spectator(protocall::socket &&socket)
 {
     std::scoped_lock lock(spectator_mutex);
     spectators.emplace_back(std::move(socket));
@@ -76,12 +76,12 @@ void game::ping_client(client_type &client)
     rng_lock.unlock();
 
     auto to_terminate = [&client,&buffer,lucky_number](){
-        client.recv(buffer, msg::BUFFER_SIZE);
+        buffer = client.recv();
         return msg::type(buffer)!=msg::header::ping||
             msg::data<unsigned short>(buffer)!=lucky_number;
     };
 
-    std::scoped_lock lock(client.mutex);
+    // std::scoped_lock lock(client.mutex);
 
     client.send(msg::header::ping, lucky_number);
 
@@ -330,19 +330,32 @@ void game::play()
             draw();
         case state_type::self_call:
             cur_state = _timeout(SELF_CALL_TIMEOUT, this, &game::self_call, 
-                state_type::tsumogiri);
+                state_type::timeout);
+            if (cur_state == state_type::timeout)
+            {
+                players[cur_player].socket.cancel();
+                cur_state = state_type::tsumogiri;
+            }
             break;
         case state_type::discard:
             cur_state = _timeout(DISCARD_TIMEOUT, this, &game::discard, 
                 state_type::tsumogiri);
+            if (cur_state == state_type::timeout)
+            {
+                players[cur_player].socket.cancel();
+                cur_state = state_type::tsumogiri;
+            }
             break;
         case state_type::opponent_call:
             cur_state = _timeout(OPPONENT_CALL_TIMEOUT, this, 
-                &game::opponent_call, state_type::opp_call_timeout);
-            break;
-        case state_type::opp_call_timeout:
-            cur_state = state_type::draw;
-            cur_player = (cur_player+1)%NUM_PLAYERS;
+                &game::opponent_call, state_type::timeout);
+            if (cur_state == state_type::timeout)
+            {
+                for (auto &player : players)
+                    player.socket.cancel();
+                cur_state = state_type::draw;
+                cur_player = (cur_player+1)%NUM_PLAYERS;
+            }
             break;
         case state_type::after_kong:
             new_dora();
@@ -411,7 +424,7 @@ game::state_type game::self_call()
 
     while(true) /* We allow retrys until timeout */
     {
-        players[cur_player].recv(buffer, msg::BUFFER_SIZE);
+        buffer = players[cur_player].recv();
         msg::header ty = msg::type(buffer);
         switch (ty)
         {
@@ -423,7 +436,7 @@ game::state_type game::self_call()
                 players[cur_player].send(msg::header::reject, msg::REJECT);
                 server_log << "Player with UID=" << std::to_string(players[cur_player].uid) 
                     << " @" << players[cur_player].socket.remote_endpoint().address().to_string() 
-                    << " called an invalid kong.";
+                    << " called an invalid kong." << "\n";
                 break; /* from switch, try again */
             }
 
@@ -698,10 +711,13 @@ game::state_type game::opponent_call()
 
             for (auto &p_flags : flags)
                 p_flags &= ~IPPATSU_FLAG;
+
+            return state_type::discard;
         }
     }
 
-    return state_type::discard;
+    // all players pass
+    return state_type::draw;
 }
 
 void game::next()
@@ -830,11 +846,3 @@ mj_id game::calc_dora(const game::card_type &tile)
         return MJ_128_TILE(MJ_SUIT(tile), (MJ_ID_128(tile) + 1) % 9);
     }
 } 
-
-template<typename SocketType>
-typename game_client<SocketType>::id_type game_client<SocketType>::_counter = 8000;
-
-int main()
-{
-    printf("Hello World!\n");
-}

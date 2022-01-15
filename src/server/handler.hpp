@@ -1,11 +1,24 @@
 #pragma once
 
 #include "game.hpp"
-
-#include <array>
-#include <unordered_map>
-#include <vector>
+#include <map>
+#include <string>
 #include <thread>
+
+struct config
+{
+
+};
+
+struct io
+{
+
+};
+
+constexpr char const *NETWORK_CONFIG_PATH = "network.cfg";
+
+bool start_server(std::string const &game_log_dir);
+
 
 /**
  * The handler is responsible for handling all connections. This means, 
@@ -27,6 +40,9 @@ public: /* Types */
 public:
     handler(handler const &) = delete;
     handler &operator=(handler const &) = delete;
+
+    static handler &get_instance();
+    
 
     void accept();
     code_type next_code();
