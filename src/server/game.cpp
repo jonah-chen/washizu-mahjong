@@ -621,7 +621,7 @@ game::state_type game::opponent_call()
                 std::vector<card_type> pong_tiles;
                 while(pong_tiles.size() < 2)
                 {
-                    players[p].recv(pong_tile_buffer);
+                    pong_tile_buffer = players[p].recv();
                     card_type tile = msg::data<card_type>(pong_tile_buffer);
                     if (msg::type(pong_tile_buffer) == msg::header::call_with_tile &&
                     mj_discard_tile(&hands[p], tile) && MJ_ID_128(tile) == MJ_ID_128(cur_tile))
@@ -650,7 +650,7 @@ game::state_type game::opponent_call()
                 std::vector<card_type> kong_tiles;
                 while(kong_tiles.size() < 3)
                 {
-                    players[p].recv(kong_tile_buffer);
+                    kong_tile_buffer = players[p].recv();
                     card_type tile = msg::data<card_type>(kong_tile_buffer);
                     if (msg::type(kong_tile_buffer) == msg::header::call_with_tile &&
                     mj_discard_tile(&hands[p], tile) && MJ_ID_128(tile) == MJ_ID_128(cur_tile))
@@ -693,7 +693,7 @@ game::state_type game::opponent_call()
     // WARNING: chow has no checks
             while(chow_tiles.size() < 2)
             {
-                players[cur_player].recv(chow_tile_buffer);
+                chow_tile_buffer = players[cur_player].recv();
                 card_type tile = msg::data<card_type>(chow_tile_buffer);
                 if (msg::type(chow_tile_buffer) == msg::header::call_with_tile &&
                 mj_discard_tile(&hands[cur_player], tile))

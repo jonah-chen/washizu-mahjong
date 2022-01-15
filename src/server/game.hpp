@@ -23,9 +23,8 @@ struct game_client
     std::mutex mutex;
 
     game_client(socket_type &&socket)
-        : socket(std::move(socket)), uid(next_uid()) {
-
-
+        : socket(std::move(socket)), uid(next_uid()), recv_thread(&game_client::recv_handler, this) {
+        recv_thread.detach();
     }
 
     game_client(game_client const &) = delete;
@@ -57,7 +56,8 @@ struct game_client
     msg::buffer recv(Args &&... args)
     {
         std::mutex m;
-        recv_cond.wait(m, [&]() { return recv_buffer.size() > 0; });
+        std::unique_lock<std::mutex> lock(m);
+        recv_cond.wait(lock, [&]() { return recv_queue.size() > 0; });
         msg::buffer ret = recv_queue.front();
         recv_queue.pop_front();
         return ret;
@@ -75,7 +75,7 @@ private:
     std::thread recv_thread;
     std::condition_variable recv_cond;
 
-    void recv_loop()
+    void recv_handler()
     {
         while (socket.is_open())
         {
