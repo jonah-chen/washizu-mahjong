@@ -18,7 +18,9 @@ static constexpr id_type
     NEW_PLAYER      = 0x3f3f,
     REJECT          = 0x8088,
     START_STREAM    = 0xa000,
-    END_STREAM      = 0xa001;
+    END_STREAM      = 0xa001,
+    PING            = 0xefe0,
+    TIMEOUT         = 0x0000;
 
 enum class header : char
 {
@@ -61,6 +63,8 @@ enum class header : char
     winning_yaku            = 'Y', /* yaku_type */
     yaku_fan_count          = 'F', /* int */
     fu_count                = 'U', /* int */
+
+    timeout                 = '\0'
 };
 
 static constexpr std::size_t BUFFER_SIZE = 3;

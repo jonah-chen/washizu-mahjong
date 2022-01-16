@@ -5,6 +5,16 @@
 #include <chrono>
 #include <utility>
 
+class timeout_exception : public std::exception 
+{
+public:
+    timeout_exception() = default;
+    constexpr char const *what() const noexcept override
+    {
+        return "timeout";
+    }
+};
+
 /**
  * @brief A wrapper method for a call with timeout.
  * 
@@ -36,7 +46,7 @@ ReturnType _timeout(unsigned long ms, Func function, ReturnType if_timeout, Args
     
     std::unique_lock lock(mutex);
     if (cv.wait_for(lock, std::chrono::milliseconds(ms))==std::cv_status::timeout)
-        return if_timeout;
+        throw timeout_exception();
     return return_value;
 }
 
@@ -66,6 +76,7 @@ ReturnType _timeout(unsigned long ms, ClassType* this_ptr, Func function, Return
 
     std::thread worker([&cv, &return_value, this_ptr, function, &args...]()
     {
+
         return_value = (this_ptr->*function)(std::forward<Args>(args)...);
         cv.notify_one();
     });
@@ -74,7 +85,7 @@ ReturnType _timeout(unsigned long ms, ClassType* this_ptr, Func function, Return
 
     std::unique_lock lock(mutex);
     if (cv.wait_for(lock, std::chrono::milliseconds(ms))==std::cv_status::timeout)
-        return if_timeout;
+        throw timeout_exception();
 
     return return_value;
 }

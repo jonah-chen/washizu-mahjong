@@ -2,90 +2,13 @@
 
 #include "deck.hpp"
 #include "utils.hpp"
-#include "message.hpp"
-
-#define ASIO_STANDALONE
-#include <asio.hpp>
+#include "client.hpp"
 
 #include <fstream>
 #include <array>
 #include <list>
 #include <vector>
 
-template<typename SocketType>
-struct game_client 
-{
-    using socket_type = SocketType;
-    using id_type = unsigned short;
-
-    id_type uid;
-    socket_type socket;
-    std::mutex mutex;
-
-    game_client(socket_type &&socket)
-        : socket(std::move(socket)), uid(next_uid()), recv_thread(&game_client::recv_handler, this) {
-        recv_thread.detach();
-    }
-
-    game_client(game_client const &) = delete;
-    
-    game_client(game_client &&other)
-        : socket(std::move(other.socket)), uid(other.uid) {}
-
-    ~game_client() 
-    {
-        if (socket.is_open())
-            socket.close();
-    }
-
-    static id_type next_uid() 
-    {
-        static id_type counter = 8000;
-        return counter++;
-    } 
-    
-    inline bool operator==(const game_client &other) const { return uid == other.uid; }
-    inline bool operator!=(const game_client &other) const { return uid != other.uid; }
-    template <typename ObjType>
-    std::size_t send(msg::header header, ObjType obj)
-    {
-        std::scoped_lock<std::mutex> lock(mutex);
-        return socket.send(asio::buffer(msg::buffer_data(header, obj), msg::BUFFER_SIZE));
-    }
-    template<typename... Args>
-    msg::buffer recv(Args &&... args)
-    {
-        std::mutex m;
-        std::unique_lock<std::mutex> lock(m);
-        recv_cond.wait(lock, [&]() { return recv_queue.size() > 0; });
-        msg::buffer ret = recv_queue.front();
-        recv_queue.pop_front();
-        return ret;
-    }
-
-    msg::buffer recv_default()
-    {
-        msg::buffer buffer;
-        asio::read(socket, asio::buffer(buffer, msg::BUFFER_SIZE));
-        return buffer;
-    }
-
-private:
-    std::deque<msg::buffer> recv_queue;
-    std::thread recv_thread;
-    std::condition_variable recv_cond;
-
-    void recv_handler()
-    {
-        while (socket.is_open())
-        {
-            msg::buffer buffer;
-            asio::read(socket, asio::buffer(buffer, msg::BUFFER_SIZE));
-            recv_queue.push_back(buffer);
-            recv_cond.notify_one();
-        }
-    }
-};
 
 enum class turn_state {
     game_over, /* Game is over */
@@ -250,8 +173,7 @@ private:
     score_type deposit {};
     score_type bonus_score {};
     unsigned short round {};
-
-    std::thread ping_thread;
+    
     std::thread main_thread;
     std::mutex spectator_mutex;
     std::mutex rng_mutex;

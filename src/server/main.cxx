@@ -73,6 +73,8 @@ int main(int argc, char **argv)
             game::protocall::socket socket(io_context);
             acceptor.accept(socket);
 
+            std::cout << socket.is_open() << "\n";
+
 
             std::string ip = socket.remote_endpoint().address().to_string();
             server_log << time() << "SERVER: " << ip << " tried to connect\n";

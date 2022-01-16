@@ -21,9 +21,6 @@ game::game(std::ostream &server_log, std::string const &game_log_dir,
     for (int pos = 0; pos < NUM_PLAYERS; ++pos)
         players[pos].send(msg::header::your_position, pos);
 
-    ping_thread = std::thread(&game::ping, this);
-    ping_thread.detach();
-
     main_thread = std::thread(&game::play, this);
     main_thread.detach();
 }
@@ -52,80 +49,6 @@ void game::reconnect(unsigned short uid, protocall::socket &&socket)
             server_log << "Player " << std::to_string(uid) << " reconnected.";
             return;
         }
-    }
-}
-
-/**
- * Ping a particular client by first attempting to locks the RNG to generating 
- * the random number.
- * 
- * It then attempts to acquire the lock for the client to send it the ping with
- * the random number, and waits for the response. 
- * If there was no response within the set PING_TIMEOUT, it will close the 
- * client's socket and log the disconnection to the server log.
- */
-void game::ping_client(client_type &client)
-{
-    if (!client.socket.is_open())
-        return;
-    
-    msg::buffer buffer;
-
-    std::unique_lock rng_lock(rng_mutex);
-    unsigned short lucky_number = wall.tiger();
-    rng_lock.unlock();
-
-    auto to_terminate = [&client,&buffer,lucky_number](){
-        buffer = client.recv();
-        return msg::type(buffer)!=msg::header::ping||
-            msg::data<unsigned short>(buffer)!=lucky_number;
-    };
-
-    // std::scoped_lock lock(client.mutex);
-
-    client.send(msg::header::ping, lucky_number);
-
-    if (_timeout(PING_TIMEOUT, to_terminate, true))
-    {
-        server_log << "Client with UID=" << std::to_string(client.uid) << " @" << 
-            client.socket.remote_endpoint().address().to_string() << " timed out.";
-        client.socket.close();
-    }
-}
-
-/**
- * The method that runs the ping thread. The thread will run periodically
- * and starts by waiting. Then, it will remove any spectators that have their
- * sockets closed. Then, it will ping all the players and spectators on their
- * own threads using ping_client.
- * 
- * When accessing the spectator list, it will lock it first to ensure that
- * no other thread is modifying it.
- */
-void game::ping()
-{
-    while (true)
-    {
-        std::this_thread::sleep_for(PING_FREQ);
-    
-    // if spectators don't reconnect before the next ping, they are removed
-        spectators.remove_if([](const client_type &client){
-            return !client.socket.is_open();
-        });
-
-        for (auto &client : players)
-        {
-            std::thread ping_thread(&game::ping_client, this, std::ref(client));
-            ping_thread.detach();
-        }
-
-        std::unique_lock lock(spectator_mutex);
-        for (auto &client : spectators)
-        {
-            std::thread ping_thread(&game::ping_client, this, std::ref(client));
-            ping_thread.detach();
-        }
-        lock.unlock();
     }
 }
 
@@ -329,33 +252,13 @@ void game::play()
         case state_type::draw:
             draw();
         case state_type::self_call:
-            cur_state = _timeout(SELF_CALL_TIMEOUT, this, &game::self_call, 
-                state_type::timeout);
-            if (cur_state == state_type::timeout)
-            {
-                players[cur_player].socket.cancel();
-                cur_state = state_type::tsumogiri;
-            }
+            cur_state = self_call();
             break;
         case state_type::discard:
-            cur_state = _timeout(DISCARD_TIMEOUT, this, &game::discard, 
-                state_type::tsumogiri);
-            if (cur_state == state_type::timeout)
-            {
-                players[cur_player].socket.cancel();
-                cur_state = state_type::tsumogiri;
-            }
+            cur_state = discard();
             break;
         case state_type::opponent_call:
-            cur_state = _timeout(OPPONENT_CALL_TIMEOUT, this, 
-                &game::opponent_call, state_type::timeout);
-            if (cur_state == state_type::timeout)
-            {
-                for (auto &player : players)
-                    player.socket.cancel();
-                cur_state = state_type::draw;
-                cur_player = (cur_player+1)%NUM_PLAYERS;
-            }
+            cur_state = opponent_call();
             break;
         case state_type::after_kong:
             new_dora();
@@ -421,13 +324,17 @@ void game::start_round()
 game::state_type game::self_call()
 {
     msg::buffer buffer;
+    auto timeout_time = std::chrono::steady_clock::now() + std::chrono::milliseconds(SELF_CALL_TIMEOUT);
+
 
     while(true) /* We allow retrys until timeout */
     {
-        buffer = players[cur_player].recv();
+        buffer = players[cur_player].recv(timeout_time);
         msg::header ty = msg::type(buffer);
         switch (ty)
         {
+        case msg::header::timeout: /* Timeout */
+            return state_type::tsumogiri;
         case msg::header::call_kong:
             if (self_call_kong())
                 return state_type::after_kong;
@@ -469,7 +376,8 @@ game::state_type game::self_call()
 
 game::state_type game::discard()
 {
-    msg::buffer buffer;
+    auto timeout_time = std::chrono::steady_clock::now() + std::chrono::milliseconds(DISCARD_TIMEOUT);
+    msg::buffer buffer = players[cur_player].recv(timeout_time);
     auto discarded = msg::data<card_type>(buffer);
 
     game_flags &= ~KONG_FLAG;
@@ -483,14 +391,14 @@ game::state_type game::discard()
         cur_tile = discarded;
         return state_type::opponent_call;
     }
-    else
+    else if (msg::type(buffer) != msg::header::timeout) // invalid, not timeout
     {
         players[cur_player].send(msg::header::reject, msg::REJECT);
         server_log << "Player with UID=" << std::to_string(players[cur_player].uid) << 
         " @" << players[cur_player].socket.remote_endpoint().address().to_string() <<
-         " discarded an invalid tile.";
-        return state_type::tsumogiri;
+        " discarded an invalid tile.";
     }
+    return state_type::tsumogiri;
 }
 
 game::state_type game::opponent_call() 
@@ -536,6 +444,7 @@ game::state_type game::opponent_call()
         pong_possible[p] = mj_pong_available(hands[p], cur_tile) || mj_kong_available(hands[p], cur_tile);
     }
 
+    auto timeout_time = std::chrono::steady_clock::now() + std::chrono::milliseconds(OPPONENT_CALL_TIMEOUT);
     std::array<std::future<msg::buffer>,NUM_PLAYERS> future_buffer;
     std::array<msg::buffer, NUM_PLAYERS> buffer;
 
@@ -543,7 +452,7 @@ game::state_type game::opponent_call()
     {
         if (fan_if_ron[p] || pong_possible[p] || p==priority_order.front() && chow_possible)
         {
-            future_buffer[p] = std::async(&client_type::recv_default, &players[p]);
+            future_buffer[p] = std::async(&client_type::recv<std::chrono::steady_clock::time_point>, &players[p], timeout_time);
         }
     }
     // ron is first priority
@@ -621,7 +530,7 @@ game::state_type game::opponent_call()
                 std::vector<card_type> pong_tiles;
                 while(pong_tiles.size() < 2)
                 {
-                    pong_tile_buffer = players[p].recv();
+                    pong_tile_buffer = players[p].recv(timeout_time);
                     card_type tile = msg::data<card_type>(pong_tile_buffer);
                     if (msg::type(pong_tile_buffer) == msg::header::call_with_tile &&
                     mj_discard_tile(&hands[p], tile) && MJ_ID_128(tile) == MJ_ID_128(cur_tile))
@@ -650,7 +559,7 @@ game::state_type game::opponent_call()
                 std::vector<card_type> kong_tiles;
                 while(kong_tiles.size() < 3)
                 {
-                    kong_tile_buffer = players[p].recv();
+                    kong_tile_buffer = players[p].recv(timeout_time);
                     card_type tile = msg::data<card_type>(kong_tile_buffer);
                     if (msg::type(kong_tile_buffer) == msg::header::call_with_tile &&
                     mj_discard_tile(&hands[p], tile) && MJ_ID_128(tile) == MJ_ID_128(cur_tile))
@@ -693,7 +602,7 @@ game::state_type game::opponent_call()
     // WARNING: chow has no checks
             while(chow_tiles.size() < 2)
             {
-                chow_tile_buffer = players[cur_player].recv();
+                chow_tile_buffer = players[cur_player].recv(timeout_time);
                 card_type tile = msg::data<card_type>(chow_tile_buffer);
                 if (msg::type(chow_tile_buffer) == msg::header::call_with_tile &&
                 mj_discard_tile(&hands[cur_player], tile))
@@ -716,7 +625,7 @@ game::state_type game::opponent_call()
         }
     }
 
-    // all players pass
+    // all players pass or timeout
     return state_type::draw;
 }
 
