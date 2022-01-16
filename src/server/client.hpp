@@ -62,6 +62,8 @@ public:
     ~game_client();
 
     static id_type next_uid();
+
+    std::string ip() const;
     
     inline bool operator==(const game_client &other) const { return uid == other.uid; }
     inline bool operator!=(const game_client &other) const { return uid != other.uid; }
@@ -96,7 +98,6 @@ public:
 
         return msg::buffer_data(msg::header::timeout, msg::TIMEOUT);
     }
-
 
 private:
     msgq q;

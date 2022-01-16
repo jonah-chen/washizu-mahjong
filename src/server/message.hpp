@@ -20,6 +20,9 @@ static constexpr id_type
     START_STREAM    = 0xa000,
     END_STREAM      = 0xa001,
     PING            = 0xefe0,
+    TENPAI          = 0x1009,
+    NO_TEN          = 0x100a,
+    NO_INFO         = 0x6083,
     TIMEOUT         = 0x0000;
 
 enum class header : char
@@ -38,6 +41,7 @@ enum class header : char
     call_tsumo              = '+', /* uid */
     ask_for_draw            = 'd', /* uid */
     pass_calls              = 'n', /* uid */
+    call_tenpai             = 'i',
 
     ping                    = ';', /* random number (16 bit) */
     
@@ -63,6 +67,7 @@ enum class header : char
     winning_yaku            = 'Y', /* yaku_type */
     yaku_fan_count          = 'F', /* int */
     fu_count                = 'U', /* int */
+    exhaustive_draw         = 'E',
 
     timeout                 = '\0'
 };

@@ -127,6 +127,8 @@ void game::draw()
     else
         broadcast(msg::header::tile, tile);
     
+    cur_state = state_type::self_call;
+    
     cur_tile = tile;
 }
 
@@ -278,6 +280,7 @@ void game::play()
             break;
         case state_type::draw:
             draw();
+            break;
         case state_type::self_call:
             cur_state = self_call();
             break;
@@ -371,7 +374,7 @@ game::state_type game::self_call()
             {
                 players[cur_player].send(msg::header::reject, msg::REJECT);
                 server_log << "Player with UID=" << std::to_string(players[cur_player].uid) 
-                    << " @" << players[cur_player].socket.remote_endpoint().address().to_string() 
+                    << " @" << players[cur_player].ip() 
                     << " called an invalid kong." << "\n";
                 break; /* from switch, try again */
             }
@@ -426,7 +429,7 @@ game::state_type game::discard()
     {
         players[cur_player].send(msg::header::reject, msg::REJECT);
         server_log << "Player with UID=" << std::to_string(players[cur_player].uid) << 
-        " @" << players[cur_player].socket.remote_endpoint().address().to_string() <<
+        " @" << players[cur_player].ip() <<
         " discarded an invalid tile.";
     }
     return state_type::tsumogiri;
@@ -680,18 +683,48 @@ void game::renchan()
 
 void game::exhaustive_draw()
 {
-    std::array<bool, NUM_PLAYERS> tenpai;
+    broadcast(msg::header::exhaustive_draw, msg::NO_INFO);
+
+    auto timeout_time = clock_type::now() + TENPAI_TIMEOUT;
+
+    std::array<mj_bool, NUM_PLAYERS> tenpai;
     int players_tenpai = 0;
+
     for (int p = 0; p < NUM_PLAYERS; ++p)
     {
-        if (mj_tenpai(hands[p], melds[p], nullptr))
+        auto response = players[p].recv(timeout_time);
+        if (msg::type(response) == msg::header::call_tenpai)
         {
-            tenpai[p] = true;
+            switch(msg::data<unsigned short>(response))
+            {
+            case msg::TENPAI:
+                tenpai[p] = MJ_TRUE;
+            case msg::NO_TEN:
+                tenpai[p] = MJ_FALSE;
+            default:
+                tenpai[p] = MJ_MAYBE;
+            }
+        }
+        else
+            tenpai[p] = MJ_MAYBE;
+    }
+
+
+    for (int p = 0; p < NUM_PLAYERS; ++p)
+    {
+        if (tenpai[p] && mj_tenpai(hands[p], melds[p], nullptr))
+        {
+            broadcast(msg::header::this_player_hand, p);
+            broadcast(msg::header::closed_hand, msg::START_STREAM);
+            for (auto *it = hands[p].tiles; it < hands[p].tiles+hands[p].size; ++it)
+                broadcast(msg::header::tile, *it);
+            broadcast(msg::header::closed_hand, msg::END_STREAM);
+            tenpai[p] = MJ_TRUE;
             ++players_tenpai;
         }
         else
         {
-            tenpai[p] = false;
+            tenpai[p] = MJ_FALSE;
             if (flags[p] & (DOUBLE_RIICHI_FLAG | RIICHI_FLAG))
             {
                 cur_player = p;

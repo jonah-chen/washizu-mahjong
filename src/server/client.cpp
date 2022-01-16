@@ -61,6 +61,11 @@ game_client::id_type game_client::next_uid()
     return counter++;
 }
 
+std::string game_client::ip() const
+{
+    return socket.remote_endpoint().address().to_string();
+}
+
 void game_client::listening()
 {
     while (socket.is_open())
@@ -81,7 +86,7 @@ void game_client::listening()
 
 void game_client::pinging()
 {
-    while (true)
+    while (socket.is_open())
     {
         std::this_thread::sleep_for(PING_FREQ);
         if (q.empty())

@@ -76,7 +76,8 @@ public:
         CONNECTION_TIMEOUT      = std::chrono::milliseconds(700),
         SELF_CALL_TIMEOUT       = std::chrono::milliseconds(1500),
         DISCARD_TIMEOUT         = std::chrono::milliseconds(1500),
-        OPPONENT_CALL_TIMEOUT   = std::chrono::milliseconds(1500);
+        OPPONENT_CALL_TIMEOUT   = std::chrono::milliseconds(1500),
+        TENPAI_TIMEOUT          = std::chrono::milliseconds(1200);
     
     static constexpr unsigned short 
         RIICHI_FLAG             = 0x0001,
