@@ -47,7 +47,7 @@ game::game(unsigned short id, std::ostream &server_log,
 
     for (int pos = 0; pos < NUM_PLAYERS; ++pos)
         players[pos].send(msg::header::your_position, pos);
-
+    
     main_thread = std::thread(&game::play, this);
     main_thread.detach();
 }
@@ -486,7 +486,7 @@ game::state_type game::opponent_call()
     {
         if (fan_if_ron[p] || pong_possible[p] || p==priority_order.front() && chow_possible)
         {
-            future_buffer[p] = std::async(&client_type::recv<clock_type::time_point>, &players[p], timeout_time);
+            future_buffer[p] = std::async(&client_type::recv<clock_type::time_point>, &players[p], timeout_time, true);
         }
     }
     // ron is first priority

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "deck.hpp"
-#include "utils.hpp"
 #include "client.hpp"
 
 #include <fstream>

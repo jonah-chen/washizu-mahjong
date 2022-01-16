@@ -92,7 +92,9 @@ void game_client::pinging()
         if (q.empty())
         {
             send(msg::header::ping, msg::PING);
-            auto reply = recv(std::chrono::steady_clock::now()+PING_TIMEOUT);
+            ping_lock = true;
+            auto reply = recv(std::chrono::steady_clock::now()+PING_TIMEOUT, false);
+            ping_lock = false;
             if (msg::type(reply)!=msg::header::ping)
             {
                 if (msg::type(reply)==msg::header::timeout)
