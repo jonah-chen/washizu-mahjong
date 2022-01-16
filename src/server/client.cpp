@@ -23,7 +23,7 @@ msgq::msg_type msgq::pop_front()
 
 inline bool msgq::empty() const { return container.empty(); }
 
-game_client::game_client() : uid(), socket(context)
+game_client::game_client() : uid(next_uid()), socket(context)
 {
     acceptor.accept(socket);
     std::string ip = socket.remote_endpoint().address().to_string();
@@ -55,7 +55,7 @@ game_client::~game_client()
         socket.close();
 }
 
-game_client::id_type next_uid()
+game_client::id_type game_client::next_uid()
 {
     static game_client::id_type counter = 8000;
     return counter++;
@@ -87,10 +87,12 @@ void game_client::pinging()
         if (q.empty())
         {
             send(msg::header::ping, msg::PING);
-            std::cout << "Pinged\n";
-            if (msg::type(recv(std::chrono::steady_clock::now()+PING_TIMEOUT))!=msg::header::ping)
+            auto reply = recv(std::chrono::steady_clock::now()+PING_TIMEOUT);
+            if (msg::type(reply)!=msg::header::ping)
             {
-                socket.close();
+                if (msg::type(reply)==msg::header::timeout)
+                    std::cout << "TIMEOUT: ";
+                std::cout << "PING NOT REPLIED TO " << uid << "\n";
             }
         }
         else

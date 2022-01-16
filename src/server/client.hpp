@@ -40,8 +40,9 @@ public:
     using id_type = unsigned short;
 
     static constexpr std::chrono::duration 
-        PING_FREQ       = std::chrono::seconds(5),
-        PING_TIMEOUT    = std::chrono::milliseconds(900);
+        PING_FREQ       = std::chrono::seconds(5);
+    static constexpr std::chrono::duration
+        PING_TIMEOUT    = std::chrono::milliseconds(400);
     
     static asio::io_context context;
     static protocall::endpoint server_endpoint;

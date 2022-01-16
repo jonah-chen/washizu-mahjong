@@ -25,6 +25,7 @@ int main()
         if (msg::type(msg) == msg::header::ping)
         {
             socket.send(asio::buffer(msg, msg::BUFFER_SIZE));
+            std::cout << "replied to ping\n";
         }
         // print the message
         std::cout << static_cast<char>(msg::type(msg)) << " " << msg::data<unsigned short>(msg) << std::endl;

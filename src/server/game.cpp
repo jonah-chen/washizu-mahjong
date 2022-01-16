@@ -21,6 +21,9 @@ game::game(unsigned short id, std::ostream &server_log,
             game_flags(heads_up ? HEADS_UP_FLAG : 0)
 {
     players.reserve(NUM_PLAYERS);
+    for (auto &discard_pile : discards)
+        discard_pile.reserve(20);
+
     while (players.size() < NUM_PLAYERS)
     {
         auto &new_player = players.emplace_back();
@@ -29,7 +32,7 @@ game::game(unsigned short id, std::ostream &server_log,
         {
             auto id = msg::data<unsigned short>(conn_req);
             if (id == msg::NEW_PLAYER)
-                continue;
+                ;
             else if (games.find(id) == games.end())
                 ; // TODO: Implement later
         }
@@ -340,6 +343,8 @@ void game::start_round()
         cur_player = (cur_player + 1) % NUM_PLAYERS;   
     }
 
+    new_dora();
+
     first_turn = true;
 
     cur_state = state_type::draw;
@@ -385,6 +390,7 @@ game::state_type game::self_call()
             auto discarded = msg::data<card_type>(buffer);
             if (mj_discard_tile(&hands[cur_player], discarded))
             {
+                discards[cur_player].push_back(discarded);
                 broadcast(msg::header::tile, discarded);
                 cur_tile = discarded;
                 return state_type::opponent_call;
@@ -411,6 +417,7 @@ game::state_type game::discard()
     {
         if (discarded != cur_tile && flags[cur_player] & (DOUBLE_RIICHI_FLAG | RIICHI_FLAG))
             return state_type::chombo;
+        discards[cur_player].push_back(discarded);
         broadcast(msg::header::tile, discarded);
         cur_tile = discarded;
         return state_type::opponent_call;
@@ -728,7 +735,10 @@ void game::exhaustive_draw()
 void game::tsumogiri()
 {
     if (mj_discard_tile(&hands[cur_player], cur_tile))
+    {
+        discards[cur_player].push_back(cur_tile);
         broadcast(msg::header::tile, cur_tile);
+    }
     cur_state = state_type::opponent_call;
 }
 

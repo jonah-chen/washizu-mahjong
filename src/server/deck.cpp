@@ -34,7 +34,7 @@ void deck::reset()
 
 deck::card_type deck::operator()()
 {
-    if (--live_count < 0)
+    if (live_count-- == 0)
         return MJ_INVALID_TILE;
         
     card_type tile = tiles.front();
