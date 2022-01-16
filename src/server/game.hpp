@@ -8,6 +8,7 @@
 #include <array>
 #include <list>
 #include <vector>
+#include <unordered_map>
 
 
 enum class turn_state {
@@ -70,13 +71,12 @@ class game
 {
 public:
     static constexpr std::size_t NUM_PLAYERS = 4;
-    static constexpr std::chrono::duration PING_FREQ = std::chrono::seconds(15);
-    
-    static constexpr unsigned long  
-        SELF_CALL_TIMEOUT       = 1500,
-        DISCARD_TIMEOUT         = 1500,
-        OPPONENT_CALL_TIMEOUT   = 1500,
-        PING_TIMEOUT            = 1000;
+
+    static constexpr std::chrono::duration 
+        CONNECTION_TIMEOUT      = std::chrono::milliseconds(700),
+        SELF_CALL_TIMEOUT       = std::chrono::milliseconds(1500),
+        DISCARD_TIMEOUT         = std::chrono::milliseconds(1500),
+        OPPONENT_CALL_TIMEOUT   = std::chrono::milliseconds(1500);
     
     static constexpr unsigned short 
         RIICHI_FLAG             = 0x0001,
@@ -90,10 +90,11 @@ public:
         OTHER_KONG_FLAG         = 0x0008,
         KONG_FLAG               = 0x000c;
 
+    static std::unordered_map<unsigned short, game> games;
 
 public:
     using protocall = asio::ip::tcp;
-    using client_type = game_client<protocall::socket>;
+    using client_type = game_client;
     using players_type = std::vector<client_type>;
     using spectators_type = std::list<client_type>;
     using message_type = std::string;
@@ -104,13 +105,13 @@ public:
     using score_type = int;
     using discards_type = std::vector<card_type>;
     using state_type = turn_state;
+    using clock_type = std::chrono::steady_clock;
     enum class call_type : unsigned char {
         pass, chow, pong, kong, richii, ron, tsumo
     };
 
 public:
-    game(std::ostream &server_log, std::string const &game_log_file, 
-        players_type &&players, bool heads_up);
+    game(unsigned short id, std::ostream &server_log, std::string const &game_log_file, bool heads_up);
 
     ~game() = default;
 
@@ -150,6 +151,7 @@ public:
 private:
     std::ostream &server_log;
     std::ofstream game_log;
+    unsigned short game_id;
 
     players_type players;
     spectators_type spectators;
@@ -173,7 +175,7 @@ private:
     score_type deposit {};
     score_type bonus_score {};
     unsigned short round {};
-    
+
     std::thread main_thread;
     std::mutex spectator_mutex;
     std::mutex rng_mutex;

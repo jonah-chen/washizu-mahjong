@@ -13,11 +13,35 @@
  * begins the ping thread (on hold),
  * and then begins the main thread in the start state.
  */
-game::game(std::ostream &server_log, std::string const &game_log_dir, 
-    players_type &&_players, bool heads_up)
-        : server_log(server_log), game_log(game_log_dir), 
-        players(std::move(_players)), game_flags(heads_up ? HEADS_UP_FLAG : 0)
+game::game(unsigned short id, std::ostream &server_log, 
+        std::string const &game_log_dir, bool heads_up)
+        :   game_id(id), 
+            server_log(server_log), 
+            game_log(game_log_dir), 
+            game_flags(heads_up ? HEADS_UP_FLAG : 0)
 {
+    players.reserve(NUM_PLAYERS);
+    while (players.size() < NUM_PLAYERS)
+    {
+        auto &new_player = players.emplace_back();
+        msg::buffer conn_req = new_player.recv(clock_type::now() + CONNECTION_TIMEOUT);
+        if (msg::type(conn_req) == msg::header::join_as_player)
+        {
+            auto id = msg::data<unsigned short>(conn_req);
+            if (id == msg::NEW_PLAYER)
+                continue;
+            else if (games.find(id) == games.end())
+                ; // TODO: Implement later
+        }
+        else if (msg::type(conn_req) == msg::header::join_as_spectator)
+        {
+            players.pop_back(); // TODO: implement later
+        }
+
+        for (auto &player : players)
+            player.send(msg::header::queue_size, players.size());
+    }
+
     for (int pos = 0; pos < NUM_PLAYERS; ++pos)
         players[pos].send(msg::header::your_position, pos);
 
@@ -32,7 +56,7 @@ game::game(std::ostream &server_log, std::string const &game_log_dir,
 void game::accept_spectator(protocall::socket &&socket)
 {
     std::scoped_lock lock(spectator_mutex);
-    spectators.emplace_back(std::move(socket));
+    // TODO: spectators.emplace_back();
 }
 
 /**
@@ -324,7 +348,7 @@ void game::start_round()
 game::state_type game::self_call()
 {
     msg::buffer buffer;
-    auto timeout_time = std::chrono::steady_clock::now() + std::chrono::milliseconds(SELF_CALL_TIMEOUT);
+    auto timeout_time = clock_type::now() + SELF_CALL_TIMEOUT;
 
 
     while(true) /* We allow retrys until timeout */
@@ -376,7 +400,7 @@ game::state_type game::self_call()
 
 game::state_type game::discard()
 {
-    auto timeout_time = std::chrono::steady_clock::now() + std::chrono::milliseconds(DISCARD_TIMEOUT);
+    auto timeout_time = clock_type::now() + DISCARD_TIMEOUT;
     msg::buffer buffer = players[cur_player].recv(timeout_time);
     auto discarded = msg::data<card_type>(buffer);
 
@@ -444,7 +468,7 @@ game::state_type game::opponent_call()
         pong_possible[p] = mj_pong_available(hands[p], cur_tile) || mj_kong_available(hands[p], cur_tile);
     }
 
-    auto timeout_time = std::chrono::steady_clock::now() + std::chrono::milliseconds(OPPONENT_CALL_TIMEOUT);
+    auto timeout_time = clock_type::now() + OPPONENT_CALL_TIMEOUT;
     std::array<std::future<msg::buffer>,NUM_PLAYERS> future_buffer;
     std::array<msg::buffer, NUM_PLAYERS> buffer;
 
@@ -452,7 +476,7 @@ game::state_type game::opponent_call()
     {
         if (fan_if_ron[p] || pong_possible[p] || p==priority_order.front() && chow_possible)
         {
-            future_buffer[p] = std::async(&client_type::recv<std::chrono::steady_clock::time_point>, &players[p], timeout_time);
+            future_buffer[p] = std::async(&client_type::recv<clock_type::time_point>, &players[p], timeout_time);
         }
     }
     // ron is first priority
@@ -755,3 +779,5 @@ mj_id game::calc_dora(const game::card_type &tile)
         return MJ_128_TILE(MJ_SUIT(tile), (MJ_ID_128(tile) + 1) % 9);
     }
 } 
+
+std::unordered_map<unsigned short, game> game::games;
