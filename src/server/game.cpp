@@ -6,12 +6,17 @@
 
 /**
  * The constructor:
- * creates the references for the server and game log,
- * moves the sockets for the players,
- * sets the flags for the begining of the game,
- * sends the initial positions of each player to player,
- * begins the ping thread (on hold),
- * and then begins the main thread in the start state.
+ * Create the references for the server log, create the file for the game log.
+ * Set the flags for the begining of the game and the unique ID for the game.
+ * Reserve enough space (hopefully) to fit the vectors so they don't need to be
+ * resized later.
+ * Wait for enough players to join the game, while accepting new requests.
+ * 
+ * Once enough players join, the players are assigned seats randomly, and
+ * the seats are sent to them.
+ * 
+ * Then, the game thread starts with the shuffling of the tiles and the initial
+ * draws.
  */
 game::game(unsigned short id, std::ostream &server_log, 
         std::string const &game_log_dir, bool heads_up)
@@ -44,6 +49,8 @@ game::game(unsigned short id, std::ostream &server_log,
         for (auto &player : players)
             player.send(msg::header::queue_size, players.size());
     }
+
+    players.shuffle(wall.engine());
 
     for (int pos = 0; pos < NUM_PLAYERS; ++pos)
         players[pos].send(msg::header::your_position, pos);
@@ -145,6 +152,13 @@ void game::new_dora()
     broadcast(msg::header::dora_indicator, dora_tiles.back());
 }
 
+/**
+ * Performs payment to the provided player with a given score. Positive means
+ * points are given to the player.
+ * 
+ * It first broadcasts which player is receiving points, then how many points
+ * the player receives.
+ */
 void game::payment(int player, score_type score)
 {
     scores[player] += score;
@@ -152,24 +166,39 @@ void game::payment(int player, score_type score)
     broadcast(msg::header::this_many_points, score);
 }
 
-bool game::self_call_kong()
+/**
+ * Initiales a call of KONG by the current player.
+ * 
+ * It checks for kong from pong first. If that is possible, the OTHER_KONG_FLAG
+ * is enabled in the game flags.
+ * 
+ * Otherwise it checks for closed kong. If that is possible, the 
+ * CLOSED_KONG_FLAG is enabled in the game flags.
+ * 
+ * Otherwise, the server will send a reject to the player, and false is returned.
+ * 
+ * If either kong was succesful, the player who called the kong is broadcasted.
+ * Along with a tile kong was called with. The function then return true.
+ *  
+ */
+bool game::self_call_kong(game::card_type with)
 {
-    auto *kong = mj_open_kong_available(melds[cur_player], cur_tile);
+    auto *kong = mj_open_kong_available(melds[cur_player], with);
 
     if (kong)
     {
         *kong = MJ_KONG_TRIPLE(*kong);
-        mj_discard_tile(&hands[cur_player], cur_tile);
+        mj_discard_tile(&hands[cur_player], with);
         game_flags |= OTHER_KONG_FLAG;
     }
-    else if (mj_closed_kong_available(hands[cur_player], cur_tile))
+    else if (mj_closed_kong_available(hands[cur_player], with))
     {
-        mj_discard_tile(&hands[cur_player], cur_tile);
-        mj_discard_tile(&hands[cur_player], cur_tile^0b01);
-        mj_discard_tile(&hands[cur_player], cur_tile^0b10);
-        mj_discard_tile(&hands[cur_player], cur_tile^0b11);
+        mj_discard_tile(&hands[cur_player], with);
+        mj_discard_tile(&hands[cur_player], with^0b01);
+        mj_discard_tile(&hands[cur_player], with^0b10);
+        mj_discard_tile(&hands[cur_player], with^0b11);
         mj_add_meld(&melds[cur_player], MJ_KONG_TRIPLE(MJ_TRIPLE(
-                cur_tile,cur_player^0b01,cur_player^0b10)));
+                with,with^0b01,with^0b10)));
         game_flags |= CLOSED_KONG_FLAG;
     }
     else
@@ -178,9 +207,24 @@ bool game::self_call_kong()
         return false;
     }
     broadcast(msg::header::this_player_kong, cur_player);
+    broadcast(msg::header::tile, with);
     return true;
 }
 
+/**
+ * The server first broadcasts the player who declared the tsumo.
+ * The server then broadcasts the player's closed hand as a stream.
+ * 
+ * Then the game calculates the players yakus. If the player has no yakus, the
+ * player who declared tsumo will be awarded with the chombo penalty. 
+ * 
+ * Otherwise, the number of fu of the hand is broadcasted.
+ * Then, the yakus are broadcasted as a stream.
+ * 
+ * Finally, the payments are broadcasted. If the player who declared the tsumo
+ * is the dealer, the game will move into the renchan state. Otherwise,
+ * the game moves into the "next" state.
+ */
 game::state_type game::call_tsumo()
 {
     broadcast(msg::header::this_player_tsumo, cur_player);
@@ -315,6 +359,17 @@ void game::play()
     }
 }
 
+/**
+ * If the prevailing wind is the west wind, then the game is over.
+ * Otherwise, the round starts by emptying players hands, melds, and discards.
+ * 
+ * The wall is then reset, and every player draws 13 tiles and a new dora is set
+ * for the round.
+ * 
+ * The first turn flag is set, and the current tile is MJ_INVALID_TILE. Then,
+ * the dealer is set as the current player and the game state is changed to 
+ * the draw state.
+ */
 void game::start_round()
 {
     if (prevailing_wind == MJ_WEST)
@@ -331,12 +386,8 @@ void game::start_round()
     
     for (auto &p_discards : discards)
         p_discards.clear();
-    
-    cur_tile = MJ_INVALID_TILE;
 
-    rng_mutex.lock();
     wall.reset();
-    rng_mutex.unlock();
 
     cur_player = dealer;
     for (int i = 0; i < NUM_PLAYERS; ++i)
@@ -348,14 +399,26 @@ void game::start_round()
 
     new_dora();
 
-    first_turn = true;
+    game_flags |= FIRST_TURN_FLAG;
 
+    cur_tile = MJ_INVALID_TILE;
     cur_state = state_type::draw;
 }
 
+/**
+ * This method timeouts. This method returns the next state.
+ * 
+ * There are as many retrues until timeout. If timeout, the next state is tsumogiri.
+ * 
+ * The methods waits for a message from the current player that is about a kong,
+ * tsumo, riichi, pass, or discard. 
+ * 
+ * If a kong is called, the server expects an auxiliary message about a tile
+ * the kong is called with. This tile is broadcasted if the kong is valid. 
+ */
 game::state_type game::self_call()
 {
-    msg::buffer buffer;
+    msg::buffer buffer, aux;
     auto timeout_time = clock_type::now() + SELF_CALL_TIMEOUT;
 
 
@@ -368,7 +431,8 @@ game::state_type game::self_call()
         case msg::header::timeout: /* Timeout */
             return state_type::tsumogiri;
         case msg::header::call_kong:
-            if (self_call_kong())
+            aux = players[cur_player].recv(timeout_time);
+            if (msg::type(aux)==msg::header::call_with_tile && self_call_kong(msg::data<card_type>(aux)))
                 return state_type::after_kong;
             else
             {
@@ -383,10 +447,19 @@ game::state_type game::self_call()
             return call_tsumo();
 
         case msg::header::call_riichi:
+            for (auto *i = melds[cur_player].melds; i < melds[cur_player].melds + melds[cur_player].size; ++i)
+            {
+                if (MJ_IS_OPEN(*i)) /* Riichi not allowed on open hands */
+                {
+                    players[cur_player].send(msg::header::reject, msg::REJECT);
+                    break;
+                }
+            }
             broadcast(msg::header::this_player_riichi, cur_player);
             payment(cur_player, -MJ_RIICHI_DEPOSIT);
             deposit += MJ_RIICHI_DEPOSIT;
             flags[cur_player] |= RIICHI_FLAG;
+        case msg::header::pass_calls:
             return state_type::discard;
 
         case msg::header::discard_tile:
@@ -486,7 +559,8 @@ game::state_type game::opponent_call()
     {
         if (fan_if_ron[p] || pong_possible[p] || p==priority_order.front() && chow_possible)
         {
-            future_buffer[p] = std::async(&client_type::recv<clock_type::time_point>, &players[p], timeout_time, true);
+            future_buffer[p] = std::async(std::launch::async | std::launch::deferred, 
+                &client_type::recv<clock_type::time_point>, &players[p], timeout_time, true);
         }
     }
     // ron is first priority
@@ -660,6 +734,8 @@ game::state_type game::opponent_call()
     }
 
     // all players pass or timeout
+    std::this_thread::sleep_for(
+        wall.tiger() / static_cast<float>(0xffff) * END_TURN_DELAY);
     return state_type::draw;
 }
 
@@ -708,7 +784,6 @@ void game::exhaustive_draw()
         else
             tenpai[p] = MJ_MAYBE;
     }
-
 
     for (int p = 0; p < NUM_PLAYERS; ++p)
     {
@@ -810,7 +885,7 @@ void game::chombo_penalty()
     cur_state = state_type::start_round;
 }
 
-mj_id game::calc_dora(const game::card_type &tile)
+mj_id game::calc_dora(game::card_type tile)
 {
     switch(MJ_SUIT(tile))
     {

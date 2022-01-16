@@ -78,6 +78,7 @@ void game_client::listening()
         catch(const std::exception& e)
         {
             std::cerr << e.what() << '\n';
+            socket.close();
         }
 
         q.push_back(std::move(buf));

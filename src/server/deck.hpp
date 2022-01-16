@@ -8,6 +8,7 @@ class deck
 public:
     using card_type = mj_tile;
     using container_type = std::deque<card_type>;
+    using rng_type = std::mt19937_64;
 
 public:
     deck();
@@ -40,10 +41,12 @@ public:
     constexpr std::size_t size() const
     { return live_count; };
 
+    rng_type &engine() { return rng; };
+
 private:
     container_type tiles;
     std::size_t live_count { MJ_DECK_SIZE - MJ_DEAD_WALL_SIZE };
     std::size_t dora_count { 0 };
-    std::mt19937 rng{ std::random_device{}() };
+    rng_type rng{ std::random_device{}() };
     std::uniform_int_distribution<unsigned short> luck { 0, 0xffff };
 };

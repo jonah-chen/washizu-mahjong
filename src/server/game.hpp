@@ -9,30 +9,74 @@
 #include <vector>
 #include <unordered_map>
 
-
+/**
+ * @brief This enum class is used to represent the game state.
+ */
 enum class turn_state {
-    game_over, /* Game is over */
-    start_round, /* Start of a new round */
-    
-    /* Normal Gameplay */
-    draw,
-    self_call, /* Calling richii, closed kong, normal kong on meld */
-    discard, /* Discarding */
-    opponent_call, /* If opponent can call the tile you discarded */
-    
-    /* Special Gameplay */
-    after_kong,
-    
-    /* End of round */
-    next,
-    renchan,
-    exhaustive_draw,
+    game_over, start_round, /* Game handling states */
+    draw, self_call, discard, opponent_call, /* Normal Gameplay */
+    after_kong, /* Special Gameplay */
+    next, renchan, exhaustive_draw, /* End of round */
+    tsumogiri, chombo, timeout /* Bad Stuff happened */
+};
 
-    /* Bad Stuff happened */
-    tsumogiri,
-    chombo,
-    abort,
-    timeout,
+/**
+ * @brief The mapped vector allows the shuffling of immovable tiles.
+ * 
+ * @details The objects are stored in a vector and they are never moved. The
+ * shuffling is done by a secondary array, which dictates the order of the
+ * objects when they are indexed. The secondary array can be shuffled because
+ * indices are moveable.
+ * 
+ * @note The iterators have not been overloaded, so the order of the iterator is
+ * not guaranteed.
+ * 
+ * @tparam T The type of the immovable objects to store.
+ */
+template<typename T>
+class mapped_vector : public std::vector<T>
+{
+public:
+    mapped_vector() : std::vector<T>() {};
+
+    template<typename... Args>
+    T &emplace_back(Args &&... args)
+    {
+        auto &ret = std::vector<T>::emplace_back(std::forward<Args>(args)...);
+        indices.push_back(indices.size());
+        return ret;
+    }
+
+    T &operator[](std::size_t idx)
+    {
+        return std::vector<T>::operator[](indices[idx]);
+    }
+
+    const T &operator[](std::size_t idx) const
+    {
+        return std::vector<T>::operator[](indices[idx]);
+    }
+
+    constexpr std::size_t size() const
+    {
+        return indices.size();
+    }
+
+    void pop_back()
+    {
+        std::size_t szm1 = indices.size() - 1;
+        std::remove(indices.begin(), indices.end(), szm1);
+        std::vector<T>::pop_back();
+    }
+
+    template<typename RNGType>
+    void shuffle(RNGType &rng)
+    {
+        std::shuffle(indices.begin(), indices.end(), rng);
+    }
+
+private:
+    std::vector<std::size_t> indices;
 };
 
 
@@ -72,11 +116,12 @@ public:
     static constexpr std::size_t NUM_PLAYERS = 4;
 
     static constexpr std::chrono::duration 
-        CONNECTION_TIMEOUT      = std::chrono::milliseconds(700),
+        CONNECTION_TIMEOUT      = std::chrono::milliseconds(400),
         SELF_CALL_TIMEOUT       = std::chrono::milliseconds(1500),
         DISCARD_TIMEOUT         = std::chrono::milliseconds(1500),
         OPPONENT_CALL_TIMEOUT   = std::chrono::milliseconds(1500),
-        TENPAI_TIMEOUT          = std::chrono::milliseconds(1200);
+        TENPAI_TIMEOUT          = std::chrono::milliseconds(1200),
+        END_TURN_DELAY          = std::chrono::milliseconds(2000);
     
     static constexpr unsigned short 
         RIICHI_FLAG             = 0x0001,
@@ -95,10 +140,9 @@ public:
 public:
     using protocall = asio::ip::tcp;
     using client_type = game_client;
-    using players_type = std::vector<client_type>;
+    using players_type = mapped_vector<client_type>;
     using spectators_type = std::list<client_type>;
     using message_type = std::string;
-    using io_type = asio::io_context;
     using flag_type = unsigned short;
     using deck_type = deck;
     using card_type = typename deck_type::card_type;
@@ -106,9 +150,6 @@ public:
     using discards_type = std::vector<card_type>;
     using state_type = turn_state;
     using clock_type = std::chrono::steady_clock;
-    enum class call_type : unsigned char {
-        pass, chow, pong, kong, richii, ron, tsumo
-    };
 
 public:
     game(unsigned short id, std::ostream &server_log, std::string const &game_log_file, bool heads_up);
@@ -144,52 +185,60 @@ public:
             spectator.send(header, obj);
     }
 
+    /**
+     * Play the game in a loop based on the state. Should be run on the main
+     * thread. The function will return when the game is over. 
+     */
     void play();
 
-    static mj_id calc_dora(const card_type &indicator);
+    /**
+     * @brief Calculate the dora based on the indicator
+     * 
+     * @param indicator The dora indicator.
+     * @return The ID (128) of the dora
+     */
+    static mj_id calc_dora(card_type indicator);
 
 private:
-    std::ostream &server_log;
-    std::ofstream game_log;
-    unsigned short game_id;
-
     players_type players;
     spectators_type spectators;
 
-    deck_type wall;
-
-    std::array<mj_hand, NUM_PLAYERS> hands;
+    /* Player state */
+    std::array<mj_hand, NUM_PLAYERS> hands {};
     std::array<mj_meld, NUM_PLAYERS> melds {};
     std::array<score_type, NUM_PLAYERS> scores {};
     std::array<discards_type, NUM_PLAYERS> discards {};
-    std::vector<card_type> dora_tiles;
     std::array<flag_type, NUM_PLAYERS> flags;
 
-    flag_type game_flags;    
+    /* Game state */
+    unsigned short game_id;
+    deck_type wall;
+    std::ostream &server_log;
+    std::ofstream game_log;
+    flag_type game_flags;   
+    std::vector<card_type> dora_tiles; 
     int prevailing_wind { MJ_EAST };
     int dealer { 0 };
     int cur_player { 0 };
-    bool first_turn { true };
     state_type cur_state { state_type::start_round };
     card_type cur_tile { MJ_INVALID_TILE };
     score_type deposit {};
     score_type bonus_score {};
     unsigned short round {};
 
+    /* Aux Objects */
     std::thread main_thread;
     std::mutex spectator_mutex;
     std::mutex rng_mutex;
 
-
 private:
-    void ping_client(client_type &client);
-
     /* handle different states */
     void start_round();
+    /* Normal play states */
     state_type self_call();
-    state_type discard(); /* wait for tile to recieved by server */
+    state_type discard();
     state_type opponent_call();
-
+    /* Special play states */
     void after_kong();
     /* End game state */
     void next();
@@ -201,12 +250,8 @@ private:
 
     /* Helpers */
     void draw();
-
     void new_dora();
-
     void payment(int player, score_type score);
-
-    bool self_call_kong();
-
+    bool self_call_kong(card_type with);
     state_type call_tsumo();
 };
