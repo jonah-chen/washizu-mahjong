@@ -29,7 +29,7 @@ static constexpr id_type
 
 enum class header : char
 {
-    reconnect               = 'e', /* uid original */
+    my_id                   = 'e', /* uid original */
     join_as_player          = 'p', /* magic number */
     join_as_spectator       = 's', /* game id */
     draw_tile               = 'd', /* uid */

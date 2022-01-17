@@ -4,20 +4,27 @@
 #include <iostream>
 #include <unordered_set>
 
+struct identified_msg
+{
+    unsigned short id;
+    msg::buffer data;
+};
+
 class game_client 
 {
 public:
     using protocall = asio::ip::tcp;
     using socket_type = protocall::socket;
     using id_type = unsigned short;
-    using queue_type = msg::queue<msg::buffer>;
+    using queue_type = msg::queue<identified_msg>;
     using clock_type = std::chrono::steady_clock;
 
 public:
     static constexpr std::chrono::duration 
-        PING_FREQ       = std::chrono::seconds(15);
+        PING_FREQ           = std::chrono::seconds(15);
     static constexpr std::chrono::duration
-        PING_TIMEOUT    = std::chrono::milliseconds(300);
+        PING_TIMEOUT        = std::chrono::milliseconds(300),
+        CONNECTION_TIMEOUT  = std::chrono::milliseconds(400);
     
     static asio::io_context context;
     static protocall::endpoint server_endpoint;
@@ -28,7 +35,7 @@ public:
     id_type uid;
     std::mutex mutex;
 
-    game_client();
+    game_client(queue_type &shared_q, unsigned short &game_id, bool &as_player);
 
     game_client(game_client const &) = delete;
 
@@ -57,29 +64,27 @@ public:
             socket.close();
         }
         return 0;
-        
     }
 
-    template <typename TimepointType>
-    msg::buffer recv(TimepointType until)
+    template <typename DurationType> 
+    msg::buffer recv(DurationType wait_dur)
     {
-        std::unique_lock local_l(local_m);
-        
-        if (!q.empty() && clock_type::now() > until)
-            q.pop_front();
-
-        if (local_cv.wait_until(local_l, until, [this](){ return !q.empty(); }))
-            return q.pop_front();
-
-        return msg::buffer_data(msg::header::timeout, msg::TIMEOUT);
+        msg::buffer buf;
+        std::unique_lock ul(local_m);
+        if (local_cv.wait_for(ul, wait_dur, [this](){ return socket.available() >= msg::BUFFER_SIZE; }))
+        {
+            socket.receive(asio::buffer(buf, msg::BUFFER_SIZE));
+            return buf;
+        }
+        return msg::buffer_data(msg::header::timeout, msg::TIMEOUT);     
     }
 
     void reject();
 
-    bool is_open() const { return socket.is_open(); }
+    bool is_open() const { return socket.is_open(); } 
 
 private:
-    queue_type q;
+    queue_type &q;
     std::thread listener;
     std::thread pinger;
 

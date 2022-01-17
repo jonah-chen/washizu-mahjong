@@ -9,6 +9,7 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
+#include <map>
 
 /**
  * @brief This enum class is used to represent the game state.
@@ -30,7 +31,7 @@ public:
     using client_ptr        = std::unique_ptr<client_type>;
     using players_type      = std::vector<client_ptr>;
     using spectators_type   = std::list<client_ptr>;
-    using message_type      = std::string;
+    using message_type      = identified_msg;
     using flag_type         = unsigned short;
     using deck_type         = deck;
     using card_type         = typename deck_type::card_type;
@@ -43,7 +44,7 @@ public:
 public:
     static constexpr std::size_t NUM_PLAYERS = 4;
 
-    static constexpr std::chrono::duration 
+    static constexpr std::chrono::duration
         CONNECTION_TIMEOUT      = std::chrono::milliseconds(400),
         SELF_CALL_TIMEOUT       = std::chrono::milliseconds(1500),
         DISCARD_TIMEOUT         = std::chrono::milliseconds(7000),
@@ -125,6 +126,7 @@ private:
     std::array<flag_type, NUM_PLAYERS> flags;
 
     /* Game state */
+    msg::queue<message_type> messages;
     unsigned short game_id;
     deck_type wall;
     std::ostream &server_log;
@@ -139,12 +141,15 @@ private:
     score_type deposit {};
     score_type bonus_score {};
     unsigned short round {};
+    std::map<client_type::id_type,int> player_id_map;
 
     /* Aux Objects */
     std::thread main_thread;
     std::mutex spectator_mutex;
     std::mutex rng_mutex;
-    std::mutex log_mutex;
+
+    std::condition_variable timeout_cv;
+    std::mutex timeout_m;
 
 private:
     /* handle different states */
@@ -170,4 +175,27 @@ private:
     bool self_call_kong(card_type with);
     state_type call_tsumo();
     void log_cur(char const *msg);
+
+private:
+    /**
+     * @brief Tries to fetch the first message that is sent by the current player.
+     * 
+     * @tparam TimepointType chrono is stupid.
+     * @param until The time to wait until before timing out.
+     * @return The first message that is sent by the current player, or timeout 
+     * TIMEOUT if timed out.
+     */
+    template <typename TimepointType>
+    msg::buffer fetch_cur(TimepointType until)
+    {
+        while (true)
+        {
+            std::unique_lock ul(timeout_m);
+            if (timeout_cv.wait_until(ul, until, [this]() { return !messages.empty(); }));
+                return msg::buffer_data(msg::header::timeout, msg::TIMEOUT);
+            auto msg = messages.pop_front();
+            if (msg.id == players[cur_player]->uid)
+                return msg.data;
+        }
+    }
 };

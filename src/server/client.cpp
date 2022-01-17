@@ -1,6 +1,7 @@
 #include "client.hpp"
 
-game_client::game_client() : uid(next_uid()), socket(context)
+game_client::game_client(queue_type &shared_q, unsigned short &game_id, bool &as_player) 
+    : q(shared_q), uid(next_uid()), socket(context)
 {
     acceptor.accept(socket);
     std::string ip = socket.remote_endpoint().address().to_string();
@@ -13,6 +14,45 @@ game_client::game_client() : uid(next_uid()), socket(context)
         return;
     }
 #endif
+    msg::buffer conn_req, conn_id;
+    try 
+    {
+        socket.send(asio::buffer(msg::buffer_data(msg::header::your_id, uid), msg::BUFFER_SIZE));
+        conn_req = recv(CONNECTION_TIMEOUT);
+        conn_id  = recv(CONNECTION_TIMEOUT);
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        socket.close();
+        return;
+    }
+
+    if (msg::type(conn_id) != msg::header::your_id)
+    {
+        reject();
+        return;
+    }
+
+    msg::header header = msg::type(conn_req);
+    unsigned short id = msg::data<unsigned short>(conn_id);
+    
+    if (header == msg::header::join_as_player)
+    {
+        game_id = msg::data<unsigned short>(conn_req);
+        as_player = true;
+        uid = id;
+    }
+    else if (header == msg::header::join_as_spectator && id == uid)
+    {
+        game_id = msg::data<unsigned short>(conn_req);
+        as_player = false;
+    }
+    else
+    {
+        reject();
+        return;
+    }
 
     listener = std::thread(&game_client::listening, this);
     pinger = std::thread(&game_client::pinging, this);
@@ -24,7 +64,7 @@ game_client::game_client(game_client &&other)
     :   listener(std::move(other.listener)),
         pinger(std::move(other.pinger)),
         socket(std::move(other.socket)),
-        uid(other.uid) {}
+        uid(other.uid), q(other.q) {}
 
 game_client::~game_client()
 {
@@ -61,7 +101,7 @@ void game_client::listening()
         if (msg::type(buf) == msg::header::ping)
             ping_recv.notify_one();
         else
-            q.push_back(std::move(buf));
+            q.push_back({uid, buf});
     }
 }
 
@@ -82,10 +122,16 @@ void game_client::pinging()
 
 void game_client::reject()
 {
-    send(msg::header::reject, msg::REJECT);
+    try
+    {
+        send(msg::header::reject, msg::REJECT);
+    }
+    catch(const std::exception& e)
+    {}
     if (socket.is_open())
         socket.close();
 }
+
 
 asio::io_context game_client::context;
 
