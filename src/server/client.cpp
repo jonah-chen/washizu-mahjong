@@ -28,7 +28,7 @@ game_client::game_client(queue_type &shared_q, unsigned short &game_id, bool &as
         return;
     }
 
-    if (msg::type(conn_id) != msg::header::your_id)
+    if (msg::type(conn_id) != msg::header::my_id)
     {
         reject();
         return;

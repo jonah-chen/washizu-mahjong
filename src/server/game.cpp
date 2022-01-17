@@ -39,7 +39,7 @@ game::game(unsigned short id, std::ostream &server_log,
         auto new_player = std::make_unique<client_type>(messages, g_id, as_player);
         if (!new_player->is_open())
             continue;
-        if (play)
+        if (as_player)
         {
             if (g_id == msg::NEW_PLAYER)
                 players.emplace_back(std::move(new_player));
@@ -335,6 +335,7 @@ void game::play()
             start_round();
             break;
         case state_type::draw:
+            messages.flush();
             draw();
             break;
         case state_type::self_call:
@@ -440,6 +441,8 @@ game::state_type game::self_call()
         msg::header ty = msg::type(buffer);
         switch (ty)
         {
+        case msg::header::timeout:
+            return state_type::tsumogiri;
         case msg::header::call_kong:
             aux = fetch_cur(timeout_time);
             if (msg::type(aux)==msg::header::call_with_tile && self_call_kong(msg::data<card_type>(aux)))
@@ -591,8 +594,11 @@ game::state_type game::opponent_call()
                 wall.tiger() / static_cast<float>(0xffff) * END_TURN_DELAY);
             return state_type::draw;
         }
-        if (priority[max_priority] == MJ_TRUE)
-            break;
+        if (priority[max_priority] == MJ_TRUE && (
+            max_priority > 6 ||
+            max_priority > 3 && num_call_tiles[6-max_priority] >= 3 ||
+            num_call_tiles[3-max_priority] >= 2
+        )) break;
 
         std::unique_lock ul(timeout_m);
         if (timeout_cv.wait_until(ul, timeout_time, [this]() { return !messages.empty(); }));
@@ -640,7 +646,6 @@ game::state_type game::opponent_call()
 
     if (max_priority > 6)
     {
-        // ron
         int ron_player = order[9-max_priority];
         broadcast(msg::header::this_player_ron, ron_player);
         if (yakus_if_ron[ron_player][MJ_YAKU_RICHII])
@@ -659,12 +664,18 @@ game::state_type game::opponent_call()
             for (auto *i = melds[ron_player].melds; i < melds[ron_player].melds+melds[ron_player].size; ++i)
             {
                 if (MJ_IS_KONG(*i))
-                    yakus_if_ron[ron_player][MJ_YAKU_DORA] += calc_dora(indicator) == MJ_ID_128(MJ_FIRST(*i)) ? 4 : 0;
+                {
+                    yakus_if_ron[ron_player][MJ_YAKU_DORA] += 
+                        calc_dora(indicator) == MJ_ID_128(MJ_FIRST(*i)) ? 4 : 0;
+                }
                 else
                 {
-                    yakus_if_ron[ron_player][MJ_YAKU_DORA] += calc_dora(indicator) == MJ_ID_128(MJ_FIRST(*i)) ? 1 : 0;
-                    yakus_if_ron[ron_player][MJ_YAKU_DORA] += calc_dora(indicator) == MJ_ID_128(MJ_SECOND(*i)) ? 1 : 0;
-                    yakus_if_ron[ron_player][MJ_YAKU_DORA] += calc_dora(indicator) == MJ_ID_128(MJ_THIRD(*i)) ? 1 : 0;
+                    yakus_if_ron[ron_player][MJ_YAKU_DORA] += 
+                        calc_dora(indicator) == MJ_ID_128(MJ_FIRST(*i)) ? 1 : 0;
+                    yakus_if_ron[ron_player][MJ_YAKU_DORA] += 
+                        calc_dora(indicator) == MJ_ID_128(MJ_SECOND(*i)) ? 1 : 0;
+                    yakus_if_ron[ron_player][MJ_YAKU_DORA] += 
+                        calc_dora(indicator) == MJ_ID_128(MJ_THIRD(*i)) ? 1 : 0;
                 }
             }
         }
@@ -708,195 +719,54 @@ game::state_type game::opponent_call()
         }
     }
     else if (max_priority > 3)
-    {}
+    {
+        int kong_player = order[6-max_priority];
+        broadcast(msg::header::this_player_kong, kong_player);
+        for (auto const &tile : call_tiles[kong_player])
+            broadcast(msg::header::tile, tile);
+
+        mj_add_meld(&melds[kong_player], MJ_KONG_TRIPLE(MJ_OPEN_TRIPLE(MJ_TRIPLE(
+            cur_tile, call_tiles[kong_player][0], call_tiles[kong_player][1]))));
+        
+        game_flags |= OTHER_KONG_FLAG;
+        cur_player = kong_player;
+
+        for (auto &p_flags : flags)
+            p_flags &= ~IPPATSU_FLAG;
+        return state_type::after_kong;
+    }
     else if (max_priority > 0)
-    {}
+    {
+        int pong_player = order[3-max_priority];
+        broadcast(msg::header::this_player_pong, pong_player);
+        for (auto const &tile : call_tiles[pong_player])
+            broadcast(msg::header::tile, tile);
+        
+        mj_add_meld(&melds[pong_player], MJ_OPEN_TRIPLE(MJ_TRIPLE(
+            cur_tile, call_tiles[pong_player][0], call_tiles[pong_player][1])));
+        
+        cur_player = pong_player;
+
+        for (auto &p_flags : flags)
+            p_flags &= ~IPPATSU_FLAG;
+
+        return state_type::discard;
+    }
     else
-    {}
-
-
-    std::array<std::future<msg::buffer>,NUM_PLAYERS> future_buffer;
-    std::array<msg::buffer, NUM_PLAYERS> buffer;
-
-    for (auto const &p : priority_order)
     {
-        if (fan_if_ron[p] || pong_possible[p] || p==priority_order.front() && chow_possible)
-        {
-            future_buffer[p] = std::async(std::launch::async | std::launch::deferred, 
-                &client_type::recv<clock_type::time_point>, players[p].get(), timeout_time);
-        }
-    }
-    // ron is first priority
-    for (auto const &p : priority_order)
-    {
-        if (fan_if_ron[p])
-        {
-            buffer[p] = future_buffer[p].get();
-            if (msg::type(buffer[p]) == msg::header::call_ron)
-            {
-                broadcast(msg::header::this_player_ron, p);
-    // count the doras
-                if (yakus_if_ron[p][MJ_YAKU_RICHII])
-                {
-                    auto doras = dora_tiles.size();
-                    for (int i = 0; i < doras; ++i)
-                        dora_tiles.push_back(wall.draw_dora());
-                }
+        cur_player = order[0]; // chow player
 
-                for (auto &indicator : dora_tiles)
-                {
-                    yakus_if_ron[p][MJ_YAKU_DORA] += std::count_if(hands[cur_player].tiles, 
-                    hands[cur_player].tiles+hands[cur_player].size, 
-                    [indicator](const card_type &tile){
-                        return calc_dora(indicator) == MJ_ID_128(tile);
-                    });
-                }
+        broadcast(msg::header::this_player_chow, cur_player);
+        for (auto const &tile : call_tiles[cur_player])
+            broadcast(msg::header::tile, tile);
+        
+        mj_add_meld(&melds[cur_player], MJ_OPEN_TRIPLE(MJ_TRIPLE(
+            cur_tile, call_tiles[cur_player][0], call_tiles[cur_player][1])));
 
-                score_type b_score = mj_basic_score(fu_if_ron[p], fan_if_ron[p]+yakus_if_ron[p][MJ_YAKU_DORA]);
+        for (auto &p_flags : flags)
+            p_flags &= ~IPPATSU_FLAG;
 
-                broadcast(msg::header::this_player_hand, p);
-                broadcast(msg::header::closed_hand, msg::START_STREAM);
-                for (auto *i = hands[p].tiles; i < hands[p].tiles+hands[p].size; ++i)
-                    broadcast(msg::header::tile, *i);
-                broadcast(msg::header::closed_hand, msg::END_STREAM);
-
-                broadcast(msg::header::fu_count, fu_if_ron[p]);
-                broadcast(msg::header::yaku_list, msg::START_STREAM);
-                for (int i = 0; i < MJ_YAKU_ARR_SIZE; ++i)
-                {
-                    if (yakus_if_ron[p][i])
-                    {
-                        broadcast(msg::header::winning_yaku, i);
-                        broadcast(msg::header::yaku_fan_count, yakus_if_ron[p][i]);
-                    }
-                }
-                broadcast(msg::header::yaku_list, msg::END_STREAM);
-
-                for (auto &p_flags : flags)
-                    p_flags &= ~IPPATSU_FLAG;
-
-                if (p == dealer)
-                {
-                    payment(p, b_score*6 + deposit + bonus_score*3);
-                    payment(cur_player, -b_score*6 - bonus_score*3);
-                    return state_type::renchan;
-                }
-                else
-                {
-                    payment(p, b_score*4 + deposit + bonus_score*3);
-                    payment(cur_player, -b_score*4 - bonus_score*3);
-                    return state_type::next;
-                }
-            }
-        }
-    }
-    // pong is second priority
-    for (auto const &p : priority_order)
-    {
-        if (pong_possible[p])
-        {
-            if (future_buffer[p].valid())
-                buffer[p] = future_buffer[p].get();
-            if (msg::type(buffer[p]) == msg::header::call_pong)
-            {
-    // pong will take 2 tiles from the players hand.
-                msg::buffer pong_tile_buffer;
-                std::vector<card_type> pong_tiles;
-                while(pong_tiles.size() < 2)
-                {
-                    pong_tile_buffer = players[p]->recv(timeout_time);
-                    card_type tile = msg::data<card_type>(pong_tile_buffer);
-                    if (msg::type(pong_tile_buffer) == msg::header::call_with_tile &&
-                    mj_discard_tile(&hands[p], tile) && MJ_ID_128(tile) == MJ_ID_128(cur_tile))
-                        pong_tiles.push_back(tile);
-                    else
-                        players[p]->send(msg::header::reject, msg::REJECT);
-                }
-                broadcast(msg::header::this_player_pong, p);
-                for (auto const &tile : pong_tiles)
-                    broadcast(msg::header::tile, tile);
-                
-                mj_add_meld(&melds[p], MJ_OPEN_TRIPLE(MJ_TRIPLE(
-                    cur_tile, pong_tiles[0], pong_tiles[1])));
-                
-                cur_player = p;
-
-                for (auto &p_flags : flags)
-                    p_flags &= ~IPPATSU_FLAG;
-                return state_type::discard;
-            }
-            else if (msg::type(buffer[p]) == msg::header::call_kong)
-            {
-                broadcast(msg::header::this_player_kong, p);
-                
-                msg::buffer kong_tile_buffer;
-                std::vector<card_type> kong_tiles;
-                while(kong_tiles.size() < 3)
-                {
-                    kong_tile_buffer = players[p]->recv(timeout_time);
-                    card_type tile = msg::data<card_type>(kong_tile_buffer);
-                    if (msg::type(kong_tile_buffer) == msg::header::call_with_tile &&
-                    mj_discard_tile(&hands[p], tile) && MJ_ID_128(tile) == MJ_ID_128(cur_tile))
-                        kong_tiles.push_back(tile);
-                    else
-                        players[p]->send(msg::header::reject, msg::REJECT);
-                }
-
-                broadcast(msg::header::this_player_kong, p);
-                for (auto const &tile : kong_tiles)
-                    broadcast(msg::header::tile, tile);
-
-                mj_add_meld(&melds[p], MJ_KONG_TRIPLE(MJ_OPEN_TRIPLE(MJ_TRIPLE(
-                    cur_tile, kong_tiles[0], kong_tiles[1]))));
-                
-                game_flags |= OTHER_KONG_FLAG;
-                cur_player = p;
-
-                for (auto &p_flags : flags)
-                    p_flags &= ~IPPATSU_FLAG;
-                return state_type::after_kong;
-            }
-        }
-    }
-
-    // if no pong or kong, then the current player is the next player.
-    cur_player = priority_order.front();
-    // chow is third priority
-    if (chow_possible)
-    {
-        if (future_buffer[cur_player].valid())
-            buffer[cur_player] = future_buffer[cur_player].get();
-        if (msg::type(buffer[cur_player]) == msg::header::call_chow)
-        {
-            broadcast(msg::header::this_player_chow, cur_player);
-            
-            msg::buffer chow_tile_buffer;
-            std::vector<card_type> chow_tiles;
-
-    // WARNING: chow has no checks
-            while(chow_tiles.size() < 2)
-            {
-                chow_tile_buffer = players[cur_player]->recv(timeout_time);
-                card_type tile = msg::data<card_type>(chow_tile_buffer);
-                if (msg::type(chow_tile_buffer) == msg::header::call_with_tile &&
-                mj_discard_tile(&hands[cur_player], tile))
-                    chow_tiles.push_back(tile);
-                else
-                    players[cur_player]->send(msg::header::reject, msg::REJECT);
-            }
-
-            broadcast(msg::header::this_player_chow, cur_player);
-            for (auto const &tile : chow_tiles)
-                broadcast(msg::header::tile, tile);
-            
-            mj_add_meld(&melds[cur_player], MJ_OPEN_TRIPLE(MJ_TRIPLE(
-                cur_tile, chow_tiles[0], chow_tiles[1])));
-
-            for (auto &p_flags : flags)
-                p_flags &= ~IPPATSU_FLAG;
-
-            return state_type::discard;
-        }
+        return state_type::discard;
     }
 
     // all players pass or timeout
@@ -1078,6 +948,5 @@ void game::log_cur(char const *msg)
     game_log << cur_player << " " << msg << " " << MJ_NUMBER1(cur_tile) << 
         suit[MJ_SUIT(cur_tile)] << std::endl;
 }
-
 
 std::unordered_map<unsigned short, game> game::games;
