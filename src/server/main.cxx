@@ -58,7 +58,8 @@ int main(int argc, char **argv)
     {
         std::stringstream ss;
         auto id = game_id();
-        ss << GAME_LOG_DIR << "/" << std::setw(4) << std::setfill('0') << id << ;
+        ss << GAME_LOG_DIR << "/" << std::setw(4) << std::setfill('0') << 
+            id << GAME_LOG_SUFFIX;
         game::games.try_emplace(id, id, server_log, ss.str(), true);
 
         server_log << time() << "SERVER: new game " << id << " started\n";

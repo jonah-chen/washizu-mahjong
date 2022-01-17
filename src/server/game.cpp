@@ -922,8 +922,8 @@ mj_id game::calc_dora(game::card_type tile)
 void game::log_cur(char const *msg)
 {
     char suit[5] = {'m', 'p', 's', 'w', 'd'};
-    game_log << cur_player << " " << msg << " " << MJ_NUMBER1(tile) << 
-        suit[MJ_SUIT(tile)] << std::endl;
+    game_log << cur_player << " " << msg << " " << MJ_NUMBER1(cur_tile) << 
+        suit[MJ_SUIT(cur_tile)] << std::endl;
 }
 
 std::unordered_map<unsigned short, game> game::games;

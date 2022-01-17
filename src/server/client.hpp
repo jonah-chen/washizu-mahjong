@@ -62,8 +62,8 @@ public:
     {
         std::unique_lock local_l(local_m);
         
-        if (!q.empty())
-            q.pop_front();
+        // if (!q.empty())
+        //     q.pop_front();
 
         if (local_cv.wait_until(local_l, until, [this](){ return !q.empty(); }))
             return q.pop_front();
