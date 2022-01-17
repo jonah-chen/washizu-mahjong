@@ -466,7 +466,7 @@ int mj_seven_pairs(unsigned short *_yakus, mj_hand const *hand)
     else if (tanyao)
         yakus[MJ_YAKU_TANYAO] = 1;
     
-    int fan;
+    int fan = 0;
     for (int i = 0; i < MJ_YAKU_ARR_SIZE; ++i)
     {
         fan += yakus[i];
@@ -477,18 +477,14 @@ int mj_seven_pairs(unsigned short *_yakus, mj_hand const *hand)
 
 inline int mj_basic_score(int fu, int fan)
 {
-    if (fan < 1)
-        return 0;
-    else if (fan < 5 || (fan==4 && fu<40) || (fan==3 && fu<70))
-        return fu << (2 + fan);
-    else if (fan < 6)
+    if (fan > 10) return MJ_SANBAIMAN;
+    if (fan > 7) return MJ_BAIMAN;
+    if (fan > 5) return MJ_HANEMAN;
+    if (fan == 5 || (fan == 4 && fu >= 40) || (fan == 3 && fu >= 70))
         return MJ_MANGAN;
-    else if (fan < 8)
-        return MJ_HANEMAN;
-    else if (fan < 11)
-        return MJ_BAIMAN;
-    else
-        return MJ_SANBAIMAN;
+    if (fan > 0)
+        return fu << (2 + fan);
+    return 0;
 }
 
 int mj_score(int *fu, int *fan, unsigned short *yakus, 
