@@ -8,6 +8,7 @@
 #include <list>
 #include <vector>
 #include <unordered_map>
+#include <memory>
 
 /**
  * @brief This enum class is used to represent the game state.
@@ -20,98 +21,25 @@ enum class turn_state {
     tsumogiri, chombo, timeout /* Bad Stuff happened */
 };
 
-/**
- * @brief The mapped vector allows the shuffling of immovable tiles.
- * 
- * @details The objects are stored in a vector and they are never moved. The
- * shuffling is done by a secondary array, which dictates the order of the
- * objects when they are indexed. The secondary array can be shuffled because
- * indices are moveable.
- * 
- * @note The iterators have not been overloaded, so the order of the iterator is
- * not guaranteed.
- * 
- * @tparam T The type of the immovable objects to store.
- */
-template<typename T>
-class mapped_vector : public std::vector<T>
-{
-public:
-    mapped_vector() : std::vector<T>() {};
 
-    template<typename... Args>
-    T &emplace_back(Args &&... args)
-    {
-        auto &ret = std::vector<T>::emplace_back(std::forward<Args>(args)...);
-        indices.push_back(indices.size());
-        return ret;
-    }
-
-    T &operator[](std::size_t idx)
-    {
-        return std::vector<T>::operator[](indices[idx]);
-    }
-
-    const T &operator[](std::size_t idx) const
-    {
-        return std::vector<T>::operator[](indices[idx]);
-    }
-
-    constexpr std::size_t size() const
-    {
-        return indices.size();
-    }
-
-    void pop_back()
-    {
-        std::size_t szm1 = indices.size() - 1;
-        std::remove(indices.begin(), indices.end(), szm1);
-        std::vector<T>::pop_back();
-    }
-
-    template<typename RNGType>
-    void shuffle(RNGType &rng)
-    {
-        std::shuffle(indices.begin(), indices.end(), rng);
-    }
-
-private:
-    std::vector<std::size_t> indices;
-};
-
-
-/**
- * 2 way communication between the player and the game.
- * 
- * A: Turn starts by the server giving draw to the player. If tile is transparent, 
- * the tile will be sent to all players and spectators. Otherwise, only the 
- * player will be sent the tile and the other players will be sent INVALID_TILE.
- * 
- * Then it waits:
- * B: Player can respond with (1) call, (2) discard.
- * 
- * (1) Server checks if call is valid. If not, server will respond with REJECT. This
- * runs in a loop with a single timeout, so it cannot be exploited.
- * 
- * (2) Server checks if the discard is valid. If not, the server will tell the client
- * to crash, because this means it is a bug.
- * If the player timeout, they will discard the last tile they drew by default.
- * 
- * C: Then, this players turn is over and other players are given the chance to call
- * that tile. The call follows with the precedence described by the rules. 
- * Server checks if call is valid. If not, server will respond with REJECT. This
- * runs in a loop with a single timeout, so it cannot be exploited.
- * The turn will then proceed to the player who called, in the discard step B2.
- * 
- * If players timeout, they will by default pass the call.
- * 
- * 
- * D: If the tile cannot be called by any player, a random delay between 0 and 3 seconds
- * is added. Then, the turn proceeds to the next player and this process repeats.
- * 
- */
 class game
 {
+public:
+    using protocall         = asio::ip::tcp;
+    using client_type       = game_client;
+    using client_ptr        = std::unique_ptr<client_type>;
+    using players_type      = std::vector<client_ptr>;
+    using spectators_type   = std::list<client_ptr>;
+    using message_type      = std::string;
+    using flag_type         = unsigned short;
+    using deck_type         = deck;
+    using card_type         = typename deck_type::card_type;
+    using score_type        = int;
+    using discards_type     = std::vector<card_type>;
+    using state_type        = turn_state;
+    using clock_type        = std::chrono::steady_clock;
+    using game_id_type      = unsigned short;
+
 public:
     static constexpr std::size_t NUM_PLAYERS = 4;
 
@@ -123,36 +51,22 @@ public:
         TENPAI_TIMEOUT          = std::chrono::milliseconds(1200),
         END_TURN_DELAY          = std::chrono::milliseconds(2000);
     
-    static constexpr unsigned short 
+    static constexpr flag_type 
         RIICHI_FLAG             = 0x0001,
         DOUBLE_RIICHI_FLAG      = 0x0002,
         IPPATSU_FLAG            = 0x0004;
 
-    static constexpr unsigned short
+    static constexpr flag_type
         HEADS_UP_FLAG           = 0x0001,
         FIRST_TURN_FLAG         = 0x0002,
         CLOSED_KONG_FLAG        = 0x0004,
         OTHER_KONG_FLAG         = 0x0008,
         KONG_FLAG               = 0x000c;
 
-    static std::unordered_map<unsigned short, game> games;
+    static std::unordered_map<game_id_type, game> games;
 
 public:
-    using protocall = asio::ip::tcp;
-    using client_type = game_client;
-    using players_type = mapped_vector<client_type>;
-    using spectators_type = std::list<client_type>;
-    using message_type = std::string;
-    using flag_type = unsigned short;
-    using deck_type = deck;
-    using card_type = typename deck_type::card_type;
-    using score_type = int;
-    using discards_type = std::vector<card_type>;
-    using state_type = turn_state;
-    using clock_type = std::chrono::steady_clock;
-
-public:
-    game(unsigned short id, std::ostream &server_log, std::string const &game_log_file, bool heads_up);
+    game(game_id_type id, std::ostream &server_log, std::string const &game_log_file, bool heads_up);
 
     ~game() = default;
 
@@ -164,12 +78,12 @@ public:
     /**
      * Add a spectator to the game.
      */
-    void accept_spectator(protocall::socket &&socket);
+    void accept_spectator(client_ptr &&socket);
 
     /**
      * Perform a reconnection.
      */
-    void reconnect(unsigned short uid, protocall::socket &&socket);
+    void reconnect(client_ptr &&socket);
 
     /**
      * 1 way communication from the game to all players and spectators.
@@ -179,10 +93,10 @@ public:
     {
         for (auto &player : players)
             if (!exclusive || player != players[cur_player])
-                player.send(header, obj);
+                player->send(header, obj);
 
         for (auto &spectator : spectators)
-            spectator.send(header, obj);
+            spectator->send(header, obj);
     }
 
     /**
@@ -255,4 +169,5 @@ private:
     void payment(int player, score_type score);
     bool self_call_kong(card_type with);
     state_type call_tsumo();
+    void log_cur(char const *msg);
 };

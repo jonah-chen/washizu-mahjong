@@ -4,10 +4,11 @@
 #include <map>
 #include <unordered_set>
 #include <iomanip>
+#include <filesystem>
 
 constexpr char const *NETWORK_CONFIG_PATH = "network.cfg";
 constexpr char const *GAME_LOG_DIR = "logs";
-constexpr char const *GAME_LOG_FILE = "gamelog.txt";
+constexpr char const *GAME_LOG_SUFFIX = ".log";
 
 auto time()
 {
@@ -50,15 +51,15 @@ int main(int argc, char **argv)
 
     std::thread debug_thread(server_debug_terminal);
     debug_thread.detach();
-
+    
+    std::filesystem::create_directory(GAME_LOG_DIR);
     server_log << time() << "SERVER: starting\n";
     while (true)
     {
-    // new game time
         std::stringstream ss;
         auto id = game_id();
-        ss << GAME_LOG_DIR << "/" << std::setw(4) << std::setfill('0') << id << ".log";
-        game::games.try_emplace(id, id, server_log, GAME_LOG_FILE, true);
+        ss << GAME_LOG_DIR << "/" << std::setw(4) << std::setfill('0') << id << ;
+        game::games.try_emplace(id, id, server_log, ss.str(), true);
 
         server_log << time() << "SERVER: new game " << id << " started\n";
     }

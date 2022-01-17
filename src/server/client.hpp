@@ -23,7 +23,6 @@ public:
     static std::unordered_set<std::string> connected_ips;
 public:
     id_type uid;
-    socket_type socket;
     std::mutex mutex;
 
     game_client();
@@ -72,6 +71,10 @@ public:
         return msg::buffer_data(msg::header::timeout, msg::TIMEOUT);
     }
 
+    void reject();
+
+    bool is_open() const { return socket.is_open(); }
+
 private:
     queue_type q;
     std::thread listener;
@@ -83,9 +86,9 @@ private:
     std::mutex ping_m;
     std::condition_variable ping_recv;
 
+    socket_type socket;
+
     void listening();
 
     void pinging();
-
-    void reject();
 };

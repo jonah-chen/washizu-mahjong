@@ -75,6 +75,7 @@ void game_client::pinging()
         if (ping_recv.wait_for(ul, PING_TIMEOUT) == std::cv_status::timeout)
         {
             std::cerr << "PING NOT REPLIED TO " << uid << "\n";
+            socket.close();
         }
     }
 }

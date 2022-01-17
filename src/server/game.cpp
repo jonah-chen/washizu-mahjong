@@ -28,11 +28,6 @@ game::game(unsigned short id, std::ostream &server_log,
 {
     if (game_log.fail())
         throw std::system_error(std::error_code(), "Cannot create game log file.");
-    
-    std::unique_lock lock(log_mutex); 
-    for (int i = 0; i < 4000; ++i)
-    game_log << "TIME: " << i << "\n";
-    lock.unlock();
 
     players.reserve(NUM_PLAYERS);
     for (auto &discard_pile : discards)
@@ -40,29 +35,37 @@ game::game(unsigned short id, std::ostream &server_log,
 
     while (players.size() < NUM_PLAYERS)
     {
-        auto &new_player = players.emplace_back();
-        msg::buffer conn_req = new_player.recv(clock_type::now() + CONNECTION_TIMEOUT);
+        auto new_player = std::make_unique<client_type>();
+        msg::buffer conn_req = new_player->recv(clock_type::now() + CONNECTION_TIMEOUT);
         if (msg::type(conn_req) == msg::header::join_as_player)
         {
             auto id = msg::data<unsigned short>(conn_req);
             if (id == msg::NEW_PLAYER)
-                ;
+                players.emplace_back(std::move(new_player));
             else if (games.find(id) == games.end())
-                ; // TODO: Implement later
+            {
+                new_player->reject();
+            }
+            else
+            {
+                msg::buffer unique_id = new_player->recv(clock_type::now() + CONNECTION_TIMEOUT);
+                new_player->uid = msg::data<client_type::id_type>(unique_id);
+                games.at(id).reconnect(std::move(new_player));
+            }
         }
         else if (msg::type(conn_req) == msg::header::join_as_spectator)
         {
-            players.pop_back(); // TODO: implement later
+            accept_spectator(std::move(new_player));
         }
 
         for (auto &player : players)
-            player.send(msg::header::queue_size, players.size());
+            player->send(msg::header::queue_size, players.size());
     }
 
-    players.shuffle(wall.engine());
+    std::shuffle(players.begin(), players.end(), wall.engine());
 
     for (int pos = 0; pos < NUM_PLAYERS; ++pos)
-        players[pos].send(msg::header::your_position, pos);
+        players[pos]->send(msg::header::your_position, pos);
     
     main_thread = std::thread(&game::play, this);
     main_thread.detach();
@@ -72,24 +75,24 @@ game::game(unsigned short id, std::ostream &server_log,
  * Accept Spectator by locking the spectator list first before
  * emplacing the new client as a spectator.
  */
-void game::accept_spectator(protocall::socket &&socket)
+void game::accept_spectator(client_ptr &&client)
 {
     std::scoped_lock lock(spectator_mutex);
-    // TODO: spectators.emplace_back();
+    spectators.emplace_back(std::move(client));
 }
 
 /**
  * Perform a reconnection by checking if the original socket is closed.
  * If so, it will reconnect the player. Otherwise, it does nothing.
  */
-void game::reconnect(unsigned short uid, protocall::socket &&socket)
+void game::reconnect(client_ptr &&client)
 {
     for (auto &player : players)
     {
-        if (player.uid == uid && !player.socket.is_open())
+        if (player->uid == client->uid && !player->is_open())
         {
-            player.socket = std::move(socket);
-            server_log << "Player " << std::to_string(uid) << " reconnected.";
+            player = std::move(client);
+            server_log << "Player " << std::to_string(player->uid) << " reconnected.";
             return;
         }
     }
@@ -138,7 +141,7 @@ void game::draw()
     if (MJ_IS_OPAQUE(tile))
     {
         broadcast(msg::header::tile, MJ_INVALID_TILE, true);
-        players[cur_player].send(msg::header::tile, tile);
+        players[cur_player]->send(msg::header::tile, tile);
     }
     else
         broadcast(msg::header::tile, tile);
@@ -147,9 +150,7 @@ void game::draw()
     
     cur_tile = tile;
 
-    char suit[5] = {'m', 'p', 's', 'w', 'd'};
-    std::scoped_lock lk(log_mutex);
-    game_log << cur_player << " drew " << MJ_NUMBER1(tile) << suit[MJ_SUIT(tile)] << '\n';
+    log_cur("drew");
 }
 
 /**
@@ -216,7 +217,7 @@ bool game::self_call_kong(game::card_type with)
     }
     else
     {
-        players[cur_player].send(msg::header::reject, msg::REJECT);
+        players[cur_player]->send(msg::header::reject, msg::REJECT);
         return false;
     }
     broadcast(msg::header::this_player_kong, cur_player);
@@ -437,21 +438,21 @@ game::state_type game::self_call()
 
     while(true) /* We allow retrys until timeout */
     {
-        buffer = players[cur_player].recv(timeout_time);
+        buffer = players[cur_player]->recv(timeout_time);
         msg::header ty = msg::type(buffer);
         switch (ty)
         {
         case msg::header::timeout: /* Timeout */
             return state_type::tsumogiri;
         case msg::header::call_kong:
-            aux = players[cur_player].recv(timeout_time);
+            aux = players[cur_player]->recv(timeout_time);
             if (msg::type(aux)==msg::header::call_with_tile && self_call_kong(msg::data<card_type>(aux)))
                 return state_type::after_kong;
             else
             {
-                players[cur_player].send(msg::header::reject, msg::REJECT);
-                server_log << "Player with UID=" << std::to_string(players[cur_player].uid) 
-                    << " @" << players[cur_player].ip() 
+                players[cur_player]->send(msg::header::reject, msg::REJECT);
+                server_log << "Player with UID=" << std::to_string(players[cur_player]->uid) 
+                    << " @" << players[cur_player]->ip() 
                     << " called an invalid kong." << "\n";
                 break; /* from switch, try again */
             }
@@ -464,7 +465,7 @@ game::state_type game::self_call()
             {
                 if (MJ_IS_OPEN(*i)) /* Riichi not allowed on open hands */
                 {
-                    players[cur_player].send(msg::header::reject, msg::REJECT);
+                    players[cur_player]->send(msg::header::reject, msg::REJECT);
                     break;
                 }
             }
@@ -483,14 +484,13 @@ game::state_type game::self_call()
                 broadcast(msg::header::tile, discarded);
                 cur_tile = discarded;
 
-                char suit[5] = {'m', 'p', 's', 'w', 'd'};
-                std::scoped_lock lk(log_mutex);
-                game_log << cur_player << " discarded " << MJ_NUMBER1(cur_tile) << suit[MJ_SUIT(cur_tile)] << '\n';
+                log_cur("discarded");
+                
                 return state_type::opponent_call;
             }
             else
             {
-                players[cur_player].send(msg::header::reject, msg::REJECT);
+                players[cur_player]->send(msg::header::reject, msg::REJECT);
                 break; /* from switch, try again */
             }
         }
@@ -500,7 +500,7 @@ game::state_type game::self_call()
 game::state_type game::discard()
 {
     auto timeout_time = clock_type::now() + DISCARD_TIMEOUT;
-    msg::buffer buffer = players[cur_player].recv(timeout_time);
+    msg::buffer buffer = players[cur_player]->recv(timeout_time);
     auto discarded = msg::data<card_type>(buffer);
 
     game_flags &= ~KONG_FLAG;
@@ -514,17 +514,15 @@ game::state_type game::discard()
         broadcast(msg::header::tile, discarded);
         cur_tile = discarded;
 
-        char suit[5] = {'m', 'p', 's', 'w', 'd'};
-        std::scoped_lock lk(log_mutex);
-        game_log << cur_player << " discarded " << MJ_NUMBER1(cur_tile) << suit[MJ_SUIT(cur_tile)] << '\n';
+        log_cur("discarded");
 
         return state_type::opponent_call;
     }
     else if (msg::type(buffer) != msg::header::timeout) // invalid, not timeout
     {
-        players[cur_player].send(msg::header::reject, msg::REJECT);
-        server_log << "Player with UID=" << std::to_string(players[cur_player].uid) << 
-        " @" << players[cur_player].ip() <<
+        players[cur_player]->send(msg::header::reject, msg::REJECT);
+        server_log << "Player with UID=" << std::to_string(players[cur_player]->uid) << 
+        " @" << players[cur_player]->ip() <<
         " discarded an invalid tile.";
     }
     return state_type::tsumogiri;
@@ -582,7 +580,7 @@ game::state_type game::opponent_call()
         if (fan_if_ron[p] || pong_possible[p] || p==priority_order.front() && chow_possible)
         {
             future_buffer[p] = std::async(std::launch::async | std::launch::deferred, 
-                &client_type::recv<clock_type::time_point>, &players[p], timeout_time);
+                &client_type::recv<clock_type::time_point>, players[p].get(), timeout_time);
         }
     }
     // ron is first priority
@@ -660,13 +658,13 @@ game::state_type game::opponent_call()
                 std::vector<card_type> pong_tiles;
                 while(pong_tiles.size() < 2)
                 {
-                    pong_tile_buffer = players[p].recv(timeout_time);
+                    pong_tile_buffer = players[p]->recv(timeout_time);
                     card_type tile = msg::data<card_type>(pong_tile_buffer);
                     if (msg::type(pong_tile_buffer) == msg::header::call_with_tile &&
                     mj_discard_tile(&hands[p], tile) && MJ_ID_128(tile) == MJ_ID_128(cur_tile))
                         pong_tiles.push_back(tile);
                     else
-                        players[p].send(msg::header::reject, msg::REJECT);
+                        players[p]->send(msg::header::reject, msg::REJECT);
                 }
                 broadcast(msg::header::this_player_pong, p);
                 for (auto const &tile : pong_tiles)
@@ -689,13 +687,13 @@ game::state_type game::opponent_call()
                 std::vector<card_type> kong_tiles;
                 while(kong_tiles.size() < 3)
                 {
-                    kong_tile_buffer = players[p].recv(timeout_time);
+                    kong_tile_buffer = players[p]->recv(timeout_time);
                     card_type tile = msg::data<card_type>(kong_tile_buffer);
                     if (msg::type(kong_tile_buffer) == msg::header::call_with_tile &&
                     mj_discard_tile(&hands[p], tile) && MJ_ID_128(tile) == MJ_ID_128(cur_tile))
                         kong_tiles.push_back(tile);
                     else
-                        players[p].send(msg::header::reject, msg::REJECT);
+                        players[p]->send(msg::header::reject, msg::REJECT);
                 }
 
                 broadcast(msg::header::this_player_kong, p);
@@ -732,13 +730,13 @@ game::state_type game::opponent_call()
     // WARNING: chow has no checks
             while(chow_tiles.size() < 2)
             {
-                chow_tile_buffer = players[cur_player].recv(timeout_time);
+                chow_tile_buffer = players[cur_player]->recv(timeout_time);
                 card_type tile = msg::data<card_type>(chow_tile_buffer);
                 if (msg::type(chow_tile_buffer) == msg::header::call_with_tile &&
                 mj_discard_tile(&hands[cur_player], tile))
                     chow_tiles.push_back(tile);
                 else
-                    players[cur_player].send(msg::header::reject, msg::REJECT);
+                    players[cur_player]->send(msg::header::reject, msg::REJECT);
             }
 
             broadcast(msg::header::this_player_chow, cur_player);
@@ -790,7 +788,7 @@ void game::exhaustive_draw()
 
     for (int p = 0; p < NUM_PLAYERS; ++p)
     {
-        auto response = players[p].recv(timeout_time);
+        auto response = players[p]->recv(timeout_time);
         if (msg::type(response) == msg::header::call_tenpai)
         {
             switch(msg::data<unsigned short>(response))
@@ -868,6 +866,7 @@ void game::tsumogiri()
     {
         discards[cur_player].push_back(cur_tile);
         broadcast(msg::header::tile, cur_tile);
+        log_cur("tsumogiri");
     }
     cur_state = state_type::opponent_call;
 }
@@ -918,6 +917,13 @@ mj_id game::calc_dora(game::card_type tile)
     default:
         return MJ_128_TILE(MJ_SUIT(tile), (MJ_ID_128(tile) + 1) % 9);
     }
-} 
+}
+
+void game::log_cur(char const *msg)
+{
+    char suit[5] = {'m', 'p', 's', 'w', 'd'};
+    game_log << cur_player << " " << msg << " " << MJ_NUMBER1(tile) << 
+        suit[MJ_SUIT(tile)] << std::endl;
+}
 
 std::unordered_map<unsigned short, game> game::games;
