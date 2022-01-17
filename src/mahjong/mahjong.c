@@ -532,6 +532,11 @@ mj_size mj_tenpai(mj_hand hand, mj_meld open, mj_id *result)
 void mj_print_tile(mj_tile tile)
 {
 #if _DEBUG_LEVEL > 0
+    if (tile == MJ_INVALID_TILE)
+    {
+        printf("???");
+        return;
+    }
     char suit[5] = {'m', 'p', 's', 'w', 'd'};
     char delim[4] = {' ', '_', '-', '^'};
     printf("%d%c%c", MJ_NUMBER1(tile), suit[MJ_SUIT(tile)], delim[(tile&0b11)]);

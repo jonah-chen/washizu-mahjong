@@ -7,7 +7,7 @@
 
 constexpr char const *NETWORK_CONFIG_PATH = "network.cfg";
 constexpr char const *GAME_LOG_DIR = "logs";
-constexpr char const *GAME_LOG_FILE = "game.log";
+constexpr char const *GAME_LOG_FILE = "gamelog.txt";
 
 auto time()
 {
@@ -46,7 +46,6 @@ unsigned short game_id()
 
 int main(int argc, char **argv)
 {
-    std::ofstream game_log(GAME_LOG_FILE);
     std::ostream &server_log = std::cout;
 
     std::thread debug_thread(server_debug_terminal);
@@ -59,7 +58,7 @@ int main(int argc, char **argv)
         std::stringstream ss;
         auto id = game_id();
         ss << GAME_LOG_DIR << "/" << std::setw(4) << std::setfill('0') << id << ".log";
-        game::games.try_emplace(id, id, server_log, ss.str(), true);
+        game::games.try_emplace(id, id, server_log, GAME_LOG_FILE, true);
 
         server_log << time() << "SERVER: new game " << id << " started\n";
     }

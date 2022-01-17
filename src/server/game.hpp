@@ -118,7 +118,7 @@ public:
     static constexpr std::chrono::duration 
         CONNECTION_TIMEOUT      = std::chrono::milliseconds(400),
         SELF_CALL_TIMEOUT       = std::chrono::milliseconds(1500),
-        DISCARD_TIMEOUT         = std::chrono::milliseconds(1500),
+        DISCARD_TIMEOUT         = std::chrono::milliseconds(7000),
         OPPONENT_CALL_TIMEOUT   = std::chrono::milliseconds(1500),
         TENPAI_TIMEOUT          = std::chrono::milliseconds(1200),
         END_TURN_DELAY          = std::chrono::milliseconds(2000);
@@ -230,6 +230,7 @@ private:
     std::thread main_thread;
     std::mutex spectator_mutex;
     std::mutex rng_mutex;
+    std::mutex log_mutex;
 
 private:
     /* handle different states */

@@ -34,6 +34,14 @@ public:
 
     message_type recv();
 
+    template<typename ObjType>
+    void recv(msg::header &header, ObjType &obj)
+    {
+        auto cur_msg = recv();
+        header = msg::type(cur_msg);
+        obj = msg::data<ObjType>(cur_msg);
+    }
+
 private:
     asio::io_context context;
     protocall::endpoint server_endpoint;

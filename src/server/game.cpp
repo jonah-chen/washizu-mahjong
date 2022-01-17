@@ -3,6 +3,7 @@
 #include "mahjong/yaku.h"
 #include <algorithm>
 #include <chrono>
+#include <stdexcept>
 
 /**
  * The constructor:
@@ -21,10 +22,18 @@
 game::game(unsigned short id, std::ostream &server_log, 
         std::string const &game_log_dir, bool heads_up)
         :   game_id(id), 
-            server_log(server_log), 
-            game_log(game_log_dir), 
+            server_log(server_log),
+            game_log(game_log_dir),
             game_flags(heads_up ? HEADS_UP_FLAG : 0)
 {
+    if (game_log.fail())
+        throw std::system_error(std::error_code(), "Cannot create game log file.");
+    
+    std::unique_lock lock(log_mutex); 
+    for (int i = 0; i < 4000; ++i)
+    game_log << "TIME: " << i << "\n";
+    lock.unlock();
+
     players.reserve(NUM_PLAYERS);
     for (auto &discard_pile : discards)
         discard_pile.reserve(20);
@@ -137,6 +146,10 @@ void game::draw()
     cur_state = state_type::self_call;
     
     cur_tile = tile;
+
+    char suit[5] = {'m', 'p', 's', 'w', 'd'};
+    std::scoped_lock lk(log_mutex);
+    game_log << cur_player << " drew " << MJ_NUMBER1(tile) << suit[MJ_SUIT(tile)] << '\n';
 }
 
 /**
@@ -469,6 +482,10 @@ game::state_type game::self_call()
                 discards[cur_player].push_back(discarded);
                 broadcast(msg::header::tile, discarded);
                 cur_tile = discarded;
+
+                char suit[5] = {'m', 'p', 's', 'w', 'd'};
+                std::scoped_lock lk(log_mutex);
+                game_log << cur_player << " discarded " << MJ_NUMBER1(cur_tile) << suit[MJ_SUIT(cur_tile)] << '\n';
                 return state_type::opponent_call;
             }
             else
@@ -496,6 +513,11 @@ game::state_type game::discard()
         discards[cur_player].push_back(discarded);
         broadcast(msg::header::tile, discarded);
         cur_tile = discarded;
+
+        char suit[5] = {'m', 'p', 's', 'w', 'd'};
+        std::scoped_lock lk(log_mutex);
+        game_log << cur_player << " discarded " << MJ_NUMBER1(cur_tile) << suit[MJ_SUIT(cur_tile)] << '\n';
+
         return state_type::opponent_call;
     }
     else if (msg::type(buffer) != msg::header::timeout) // invalid, not timeout
