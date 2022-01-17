@@ -1,4 +1,4 @@
-#include "reciever.hpp"
+#include "receiver.hpp"
 #include "mahjong/mahjong.h"
 #include "mahjong/interaction.h"
 #include <iostream>
@@ -7,7 +7,10 @@ int main()
     R interface(R::protocall::v4(), 10000);
     
     // send a connection request
+    msg::buffer msg = interface.recv();
+    std::cout << static_cast<char>(msg::type(msg)) << " " << msg::data<unsigned short>(msg) << std::endl;
     interface.send(msg::header::join_as_player, msg::NEW_PLAYER);
+    interface.send(msg::header::my_id, msg::data<unsigned short>(msg));
 
     msg::header h;
     int pos;

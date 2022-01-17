@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MJ_SERVER_DECK_HPP
+#define MJ_SERVER_DECK_HPP
 
 #include "mahjong/mahjong.h"
 #include <deque>
@@ -50,3 +51,5 @@ private:
     rng_type rng{ std::random_device{}() };
     std::uniform_int_distribution<unsigned short> luck { 0, 0xffff };
 };
+
+#endif

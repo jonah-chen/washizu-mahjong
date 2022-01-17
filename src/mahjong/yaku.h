@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MJ_YAKU_H
+#define MJ_YAKU_H
 
 #include "mahjong.h"
 
@@ -131,4 +132,6 @@ void mj_print_yaku(unsigned short const *yakus);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

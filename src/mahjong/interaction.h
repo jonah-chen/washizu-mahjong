@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MJ_INTERACTION_H
+#define MJ_INTERACTION_H
 
 #include "mahjong.h"
 
@@ -95,4 +96,6 @@ mj_size mj_chow_available(mj_hand hand, mj_tile const tile, mj_pair *chow_tiles)
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

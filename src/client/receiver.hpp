@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MJ_CLIENT_RECEIVER_HPP
+#define MJ_CLIENT_RECEIVER_HPP
 
 #define ASIO_STANDALONE
 #include <asio.hpp>
@@ -18,7 +19,7 @@ public:
 public:
     template <typename IPType>
     R(IPType ip, unsigned short port)
-        : socket(context), server_endpoint(ip, port)
+        : server_endpoint(ip, port), socket(context)
     {
         socket.connect(server_endpoint);
 
@@ -50,8 +51,11 @@ private:
     std::thread t_recv;
     void recv_impl();
 
-    msg::queue<message_type> q;
-
     std::condition_variable cv;
     std::mutex m;
+
+    msg::queue<message_type> q { cv };
+
 };
+
+#endif

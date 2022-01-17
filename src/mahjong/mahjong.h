@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MJ_MAHJONG_H
+#define MJ_MAHJONG_H
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
@@ -254,4 +255,6 @@ void mj_print_meld(mj_meld meld);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

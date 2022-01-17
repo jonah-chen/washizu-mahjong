@@ -437,7 +437,7 @@ game::state_type game::self_call()
 
     while(true) /* We allow retrys until timeout */
     {
-        msg::buffer buffer = fetch_cur(timeout_time);
+        buffer = fetch_cur(timeout_time);
         msg::header ty = msg::type(buffer);
         switch (ty)
         {
@@ -596,12 +596,12 @@ game::state_type game::opponent_call()
         }
         if (priority[max_priority] == MJ_TRUE && (
             max_priority > 6 ||
-            max_priority > 3 && num_call_tiles[6-max_priority] >= 3 ||
+            (max_priority > 3 && num_call_tiles[6-max_priority] >= 3) ||
             num_call_tiles[3-max_priority] >= 2
         )) break;
 
         std::unique_lock ul(timeout_m);
-        if (timeout_cv.wait_until(ul, timeout_time, [this]() { return !messages.empty(); }));
+        if (timeout_cv.wait_until(ul, timeout_time, [this]() { return !messages.empty(); }))
             break;
 
         auto call = messages.pop_front();
@@ -651,7 +651,7 @@ game::state_type game::opponent_call()
         if (yakus_if_ron[ron_player][MJ_YAKU_RICHII])
         {
             auto doras = dora_tiles.size();
-            for (int i = 0; i < doras; ++i)
+            for (std::size_t i = 0; i < doras; ++i)
                 dora_tiles.push_back(wall.draw_dora());
         }
         for (auto &indicator : dora_tiles)
@@ -702,8 +702,7 @@ game::state_type game::opponent_call()
         }
         broadcast(msg::header::yaku_list, msg::END_STREAM);
 
-        for (auto &p_flags : flags)
-            p_flags &= ~IPPATSU_FLAG;
+        std::transform(flags.begin(), flags.end(), flags.begin(), [](flag_type f){ return f & ~IPPATSU_FLAG; });
 
         if (ron_player == dealer)
         {
@@ -731,8 +730,8 @@ game::state_type game::opponent_call()
         game_flags |= OTHER_KONG_FLAG;
         cur_player = kong_player;
 
-        for (auto &p_flags : flags)
-            p_flags &= ~IPPATSU_FLAG;
+        std::transform(flags.begin(), flags.end(), flags.begin(), [](flag_type f){ return f & ~IPPATSU_FLAG; });
+            
         return state_type::after_kong;
     }
     else if (max_priority > 0)
@@ -747,8 +746,8 @@ game::state_type game::opponent_call()
         
         cur_player = pong_player;
 
-        for (auto &p_flags : flags)
-            p_flags &= ~IPPATSU_FLAG;
+        std::transform(flags.begin(), flags.end(), flags.begin(), [](flag_type f){ return f & ~IPPATSU_FLAG; });
+            
 
         return state_type::discard;
     }
@@ -763,8 +762,8 @@ game::state_type game::opponent_call()
         mj_add_meld(&melds[cur_player], MJ_OPEN_TRIPLE(MJ_TRIPLE(
             cur_tile, call_tiles[cur_player][0], call_tiles[cur_player][1])));
 
-        for (auto &p_flags : flags)
-            p_flags &= ~IPPATSU_FLAG;
+        std::transform(flags.begin(), flags.end(), flags.begin(), [](flag_type f){ return f & ~IPPATSU_FLAG; });
+            
 
         return state_type::discard;
     }
@@ -810,7 +809,7 @@ void game::exhaustive_draw()
     {
         std::unique_lock ul(timeout_m);
         if (timeout_cv.wait_until(ul, timeout_time, [this]() { 
-                return !messages.empty(); }));
+                return !messages.empty(); }))
             break;
 
         auto call = messages.pop_front();
@@ -828,7 +827,7 @@ void game::exhaustive_draw()
         }
     }
 
-    for (int p = 0; p < NUM_PLAYERS; ++p)
+    for (std::size_t p = 0; p < NUM_PLAYERS; ++p)
     {
         if (tenpai[p] && mj_tenpai(hands[p], melds[p], nullptr))
         {
@@ -855,15 +854,15 @@ void game::exhaustive_draw()
     switch(players_tenpai)
     {
     case 1:
-        for (int p = 0; p < NUM_PLAYERS; ++p)
+        for (std::size_t p = 0; p < NUM_PLAYERS; ++p)
             payment(p, tenpai[p] ? 3000 : -1000);
         break;
     case 2:
-        for (int p = 0; p < NUM_PLAYERS; ++p)
+        for (std::size_t p = 0; p < NUM_PLAYERS; ++p)
             payment(p, tenpai[p] ? 1500 : -1500);
         break;
     case 3:
-        for (int p = 0; p < NUM_PLAYERS; ++p)
+        for (std::size_t p = 0; p < NUM_PLAYERS; ++p)
             payment(p, tenpai[p] ? 1000 : -3000);
         break;
     }
@@ -905,7 +904,7 @@ void game::chombo_penalty()
     }
     else if (cur_player == dealer)
     {
-        for (int p = 0; p < NUM_PLAYERS; ++p)
+        for (std::size_t p = 0; p < NUM_PLAYERS; ++p)
         {
             if (p == cur_player)
                 payment(p, -MJ_MANGAN*6);
@@ -915,7 +914,7 @@ void game::chombo_penalty()
     }
     else
     {
-        for (int p = 0; p < NUM_PLAYERS; ++p)
+        for (std::size_t p = 0; p < NUM_PLAYERS; ++p)
         {
             if (p==dealer)
                 payment(p, MJ_MANGAN * 2);
@@ -944,9 +943,10 @@ mj_id game::calc_dora(game::card_type tile)
 
 void game::log_cur(char const *msg)
 {
-    char suit[5] = {'m', 'p', 's', 'w', 'd'};
     game_log << cur_player << " " << msg << " " << MJ_NUMBER1(cur_tile) << 
         suit[MJ_SUIT(cur_tile)] << std::endl;
 }
 
 std::unordered_map<unsigned short, game> game::games;
+
+std::array<char, 5> game::suit {'m', 'p', 's', 'w', 'd'};

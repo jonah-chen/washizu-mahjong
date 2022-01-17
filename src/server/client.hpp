@@ -1,3 +1,6 @@
+#ifndef MJ_SERVER_CLIENT_HPP
+#define MJ_SERVER_CLIENT_HPP
+
 #define ASIO_STANDALONE
 #include <asio.hpp>
 #include "message.hpp"
@@ -100,3 +103,5 @@ private:
 
     void pinging();
 };
+
+#endif

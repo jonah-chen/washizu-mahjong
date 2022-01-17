@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MJ_SERVER_GAME_HPP
+#define MJ_SERVER_GAME_HPP
 
 #include "deck.hpp"
 #include "client.hpp"
@@ -66,6 +67,8 @@ public:
 
     static std::unordered_map<game_id_type, game> games;
 
+    static std::array<char,5> suit;
+
 public:
     game(game_id_type id, std::ostream &server_log, std::string const &game_log_file, bool heads_up);
 
@@ -115,6 +118,9 @@ public:
     static mj_id calc_dora(card_type indicator);
 
 private:
+    std::condition_variable timeout_cv;
+    std::mutex timeout_m;
+
     players_type players;
     spectators_type spectators;
 
@@ -126,7 +132,7 @@ private:
     std::array<flag_type, NUM_PLAYERS> flags;
 
     /* Game state */
-    msg::queue<message_type> messages;
+    msg::queue<message_type> messages { timeout_cv };
     unsigned short game_id;
     deck_type wall;
     std::ostream &server_log;
@@ -147,9 +153,6 @@ private:
     std::thread main_thread;
     std::mutex spectator_mutex;
     std::mutex rng_mutex;
-
-    std::condition_variable timeout_cv;
-    std::mutex timeout_m;
 
 private:
     /* handle different states */
@@ -191,11 +194,19 @@ private:
         while (true)
         {
             std::unique_lock ul(timeout_m);
-            if (timeout_cv.wait_until(ul, until, [this]() { return !messages.empty(); }));
+            std::cout << "waiting\n";
+            std::cout << messages.empty();
+            if (!timeout_cv.wait_until(ul, until, [this]() { return !messages.empty(); }))
+            {
+                std::cout << messages.empty() << " rejected\n";
                 return msg::buffer_data(msg::header::timeout, msg::TIMEOUT);
+            }
             auto msg = messages.pop_front();
+            std::cout << "Popped Front\n";
             if (msg.id == players[cur_player]->uid)
                 return msg.data;
         }
     }
 };
+
+#endif

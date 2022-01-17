@@ -122,9 +122,9 @@ mj_size mj_chow_available(mj_hand hand, mj_tile const tile, mj_pair *chow_tiles)
 
     for (i = hand.tiles; i < hand.tiles+hand.size-1; ++i)
     {
-        int difference; 
         if (MJ_SUIT(*i) == MJ_SUIT(tile))
         {
+            int difference; 
             switch (MJ_NUMBER(*i) - MJ_NUMBER(tile))
             {
                 case -2: difference = -1; break;

@@ -1,4 +1,4 @@
-#include "reciever.hpp"
+#include "receiver.hpp"
 #include <iostream>
 int main()
 {

@@ -1,4 +1,4 @@
-#include "reciever.hpp"
+#include "receiver.hpp"
 
 R::message_type R::recv()
 {
@@ -21,7 +21,6 @@ void R::recv_impl()
         else
         {
             q.push_back(std::move(cur_msg));
-            cv.notify_one();
         }
     }
 }

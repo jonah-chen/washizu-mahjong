@@ -6,11 +6,14 @@
  * because it defines how the server communicates with the client.
  */
 
-#pragma once
+#ifndef MJ_SERVER_MESSAGE_HPP
+#define MJ_SERVER_MESSAGE_HPP
 
 #include <array>
 #include <deque>
 #include <mutex>
+#include <condition_variable>
+#include <iostream>
 
 namespace msg
 {
@@ -106,7 +109,8 @@ public:
     using container_type = std::deque<MsgType>;
 
 public:
-    queue() = default;
+    explicit queue(std::condition_variable &notification) 
+        : notification(notification) {}
     ~queue() = default;
 
     queue(queue &&other) : container(std::move(other.container)) {}
@@ -114,18 +118,22 @@ public:
     void push_back(MsgType &&message)
     {
         std::scoped_lock lock(mutex);
+        std::cout << "Pushed Back\n";
         container.push_back(std::move(message));
+        notification.notify_all();
     }
 
     void flush()
     {
         std::scoped_lock lock(mutex);
+        std::cout << "Flushed\n";
         container.clear();
     }
 
     MsgType pop_front()
     {
         std::scoped_lock lock(mutex);
+        std::cout << "Popped Front\n";
         MsgType elem = container.front();
         container.pop_front();
         return elem;
@@ -136,6 +144,9 @@ public:
 private:
     container_type container {};
     std::mutex mutex;
+    std::condition_variable &notification;
 };
 
 }
+
+#endif
