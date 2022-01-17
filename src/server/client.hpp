@@ -11,7 +11,9 @@ public:
     using socket_type = protocall::socket;
     using id_type = unsigned short;
     using queue_type = msg::queue<msg::buffer>;
+    using clock_type = std::chrono::steady_clock;
 
+public:
     static constexpr std::chrono::duration 
         PING_FREQ       = std::chrono::seconds(15);
     static constexpr std::chrono::duration
@@ -21,6 +23,7 @@ public:
     static protocall::endpoint server_endpoint;
     static protocall::acceptor acceptor;
     static std::unordered_set<std::string> connected_ips;
+    
 public:
     id_type uid;
     std::mutex mutex;
@@ -62,8 +65,8 @@ public:
     {
         std::unique_lock local_l(local_m);
         
-        // if (!q.empty())
-        //     q.pop_front();
+        if (!q.empty() && clock_type::now() > until)
+            q.pop_front();
 
         if (local_cv.wait_until(local_l, until, [this](){ return !q.empty(); }))
             return q.pop_front();

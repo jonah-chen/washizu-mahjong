@@ -37,7 +37,7 @@ public:
     using score_type        = int;
     using discards_type     = std::vector<card_type>;
     using state_type        = turn_state;
-    using clock_type        = std::chrono::steady_clock;
+    using clock_type        = typename client_type::clock_type;
     using game_id_type      = unsigned short;
 
 public:
