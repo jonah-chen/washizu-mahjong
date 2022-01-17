@@ -1,28 +1,5 @@
 #include "client.hpp"
 
-
-void msgq::push_back(msgq::msg_type &&message)
-{
-    std::scoped_lock lock(mutex);
-    container.push_back(std::move(message));
-}
-
-void msgq::flush()
-{
-    std::scoped_lock lock(mutex);
-    container.clear();
-}
-
-msgq::msg_type msgq::pop_front()
-{
-    std::scoped_lock lock(mutex);
-    msg_type elem = container.front();
-    container.pop_front();
-    return elem;
-}
-
-inline bool msgq::empty() const { return container.empty(); }
-
 game_client::game_client() : uid(next_uid()), socket(context)
 {
     acceptor.accept(socket);
@@ -81,7 +58,10 @@ void game_client::listening()
             socket.close();
         }
 
-        q.push_back(std::move(buf));
+        if (msg::type(buf) == msg::header::ping)
+            ping_recv.notify_one();
+        else
+            q.push_back(std::move(buf));
     }
 }
 
@@ -90,21 +70,12 @@ void game_client::pinging()
     while (socket.is_open())
     {
         std::this_thread::sleep_for(PING_FREQ);
-        if (q.empty())
+        send(msg::header::ping, msg::PING);
+        std::unique_lock ul(ping_m);
+        if (ping_recv.wait_for(ul, PING_TIMEOUT) == std::cv_status::timeout)
         {
-            send(msg::header::ping, msg::PING);
-            ping_lock = true;
-            auto reply = recv(std::chrono::steady_clock::now()+PING_TIMEOUT, false);
-            ping_lock = false;
-            if (msg::type(reply)!=msg::header::ping)
-            {
-                if (msg::type(reply)==msg::header::timeout)
-                    std::cout << "TIMEOUT: ";
-                std::cout << "PING NOT REPLIED TO " << uid << "\n";
-            }
+            std::cerr << "PING NOT REPLIED TO " << uid << "\n";
         }
-        else
-            std::cout << "There is already something in Q\n";
     }
 }
 

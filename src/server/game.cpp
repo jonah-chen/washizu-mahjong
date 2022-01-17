@@ -560,7 +560,7 @@ game::state_type game::opponent_call()
         if (fan_if_ron[p] || pong_possible[p] || p==priority_order.front() && chow_possible)
         {
             future_buffer[p] = std::async(std::launch::async | std::launch::deferred, 
-                &client_type::recv<clock_type::time_point>, &players[p], timeout_time, true);
+                &client_type::recv<clock_type::time_point>, &players[p], timeout_time);
         }
     }
     // ron is first priority

@@ -1,36 +1,8 @@
 #define ASIO_STANDALONE
 #include <asio.hpp>
-#include <deque>
-#include <mutex>
 #include "message.hpp"
 #include <iostream>
 #include <unordered_set>
-
-class msgq
-{
-public:
-    using msg_type = msg::buffer;
-    using container_type = std::deque<msg_type>;
-
-public:
-    msgq() = default;
-    ~msgq() = default;
-
-    msgq(msgq &&other) : container(std::move(other.container)) {}
-
-    void push_back(msg_type &&message);
-
-    void flush();
-
-    msg_type pop_front();
-
-    bool empty() const;
-
-private:
-    container_type container {};
-    std::mutex mutex;
-};
-
 
 class game_client 
 {
@@ -38,6 +10,7 @@ public:
     using protocall = asio::ip::tcp;
     using socket_type = protocall::socket;
     using id_type = unsigned short;
+    using queue_type = msg::queue<msg::buffer>;
 
     static constexpr std::chrono::duration 
         PING_FREQ       = std::chrono::seconds(15);
@@ -86,27 +59,29 @@ public:
     }
 
     template <typename TimepointType>
-    msg::buffer recv(TimepointType until, bool controlled=true)
+    msg::buffer recv(TimepointType until)
     {
         std::unique_lock local_l(local_m);
+        
+        if (!q.empty())
+            q.pop_front();
 
-        if (local_cv.wait_until(local_l, until, [this,controlled](){ 
-            return !(q.empty() || (ping_lock && controlled)); 
-        }))
+        if (local_cv.wait_until(local_l, until, [this](){ return !q.empty(); }))
             return q.pop_front();
-            
 
         return msg::buffer_data(msg::header::timeout, msg::TIMEOUT);
     }
 
 private:
-    msgq q;
+    queue_type q;
     std::thread listener;
     std::thread pinger;
-    bool ping_lock {false};
 
     std::mutex local_m;
     std::condition_variable local_cv;
+
+    std::mutex ping_m;
+    std::condition_variable ping_recv;
 
     void listening();
 

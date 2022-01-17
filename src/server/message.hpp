@@ -9,6 +9,8 @@
 #pragma once
 
 #include <array>
+#include <deque>
+#include <mutex>
 
 namespace msg
 {
@@ -96,5 +98,44 @@ constexpr ObjType data(buffer const &buf)
 {
     return static_cast<ObjType>((buf[1]&0xff) | ((buf[2]&0xff)<<8));
 }
+
+template<typename MsgType>
+class queue
+{
+public:
+    using container_type = std::deque<MsgType>;
+
+public:
+    queue() = default;
+    ~queue() = default;
+
+    queue(queue &&other) : container(std::move(other.container)) {}
+
+    void push_back(MsgType &&message)
+    {
+        std::scoped_lock lock(mutex);
+        container.push_back(std::move(message));
+    }
+
+    void flush()
+    {
+        std::scoped_lock lock(mutex);
+        container.clear();
+    }
+
+    MsgType pop_front()
+    {
+        std::scoped_lock lock(mutex);
+        MsgType elem = container.front();
+        container.pop_front();
+        return elem;
+    }
+
+    bool empty() const { return container.empty(); }
+
+private:
+    container_type container {};
+    std::mutex mutex;
+};
 
 }
