@@ -2,7 +2,7 @@
 #include <iostream>
 int main()
 {
-    R interface;
+    R interface(R::protocall::v4(), 10000);
     
     // send a connection request
     interface.send(msg::header::join_as_player, msg::NEW_PLAYER);
