@@ -194,15 +194,12 @@ private:
         while (true)
         {
             std::unique_lock ul(timeout_m);
-            std::cout << "waiting\n";
             std::cout << messages.empty();
             if (!timeout_cv.wait_until(ul, until, [this]() { return !messages.empty(); }))
-            {
-                std::cout << messages.empty() << " rejected\n";
                 return msg::buffer_data(msg::header::timeout, msg::TIMEOUT);
-            }
+
             auto msg = messages.pop_front();
-            std::cout << "Popped Front\n";
+
             if (msg.id == players[cur_player]->uid)
                 return msg.data;
         }

@@ -118,9 +118,8 @@ public:
     void push_back(MsgType &&message)
     {
         std::scoped_lock lock(mutex);
-        std::cout << "Pushed Back\n";
         container.push_back(std::move(message));
-        notification.notify_all();
+        notification.notify_one();
     }
 
     void flush()
@@ -133,7 +132,8 @@ public:
     MsgType pop_front()
     {
         std::scoped_lock lock(mutex);
-        std::cout << "Popped Front\n";
+        if (empty())
+            throw 0;
         MsgType elem = container.front();
         container.pop_front();
         return elem;

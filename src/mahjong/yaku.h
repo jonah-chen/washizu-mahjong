@@ -44,7 +44,7 @@
 extern "C" {
 #endif
 
-static char const *MJ_YAKU_NAMES[MJ_YAKU_ARR_SIZE] = {
+static char const *const MJ_YAKU_NAMES[MJ_YAKU_ARR_SIZE] = {
     "Richii", // 0
     "Ippatsu", // 1
     "Menzenchin Tsumohou", // 2

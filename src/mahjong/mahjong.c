@@ -246,7 +246,7 @@ static mj_hand_array *dfs(mj_tile *tiles, mj_size size, mj_triple *triples, mj_s
     return children;
 }
 
-static void mj_add_perms(mj_triple *perm_triples, mj_size perms, mj_triple *result, mj_hand_array *root, mj_size n)
+static void mj_add_perms(mj_triple const *perm_triples, mj_size perms, mj_triple *result, mj_hand_array *root, mj_size n)
 {
     for (mj_size i = 1; i <= root->count; ++i)
     {
@@ -450,8 +450,8 @@ mj_size mj_tenpai(mj_hand hand, mj_meld open, mj_id *result)
         /* suit >= tilesuit */
         for (int number = 0; number < 9; ++number)
         {
-            while (MJ_SUIT(hand.tiles[idx]) == suit &&
-                MJ_NUMBER(hand.tiles[idx]) < number - 1 ||
+            while ((MJ_SUIT(hand.tiles[idx]) == suit &&
+                MJ_NUMBER(hand.tiles[idx]) < number - 1) ||
                 MJ_NUMBER(hand.tiles[idx]) > number + 1)
             {
                 if (MJ_NUMBER(hand.tiles[idx]) < number - 1)

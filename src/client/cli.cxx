@@ -84,6 +84,7 @@ int main()
                         if (mj_discard_tile(&hands[pos], td))
                         {
                             std::cout << "you try to discard " << choice << "\n";
+                            mj_add_tile(&hands[pos], td);
                             interface.send(msg::header::discard_tile, td);
                             break;
                         }
@@ -99,7 +100,7 @@ int main()
         }
         else if (h==msg::header::tile)
         {
-            if (mj_discard_tile(&hands[cur_player], t) || cur_player == pos)
+            if (mj_discard_tile(&hands[cur_player], t))
             {
 
             }

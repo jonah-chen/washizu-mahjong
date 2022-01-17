@@ -421,7 +421,7 @@ void game::start_round()
 /**
  * This method timeouts. This method returns the next state.
  * 
- * There are as many retrues until timeout. If timeout, the next state is tsumogiri.
+ * There are as many retries until timeout. If timeout, the next state is tsumogiri.
  * 
  * The methods waits for a message from the current player that is about a kong,
  * tsumo, riichi, pass, or discard. 
@@ -590,9 +590,7 @@ game::state_type game::opponent_call()
             max_priority--;
         if (max_priority < 0)
         {
-            std::this_thread::sleep_for(
-                wall.tiger() / static_cast<float>(0xffff) * END_TURN_DELAY);
-            return state_type::draw;
+            goto NO_CALL;
         }
         if (priority[max_priority] == MJ_TRUE && (
             max_priority > 6 ||
@@ -601,7 +599,7 @@ game::state_type game::opponent_call()
         )) break;
 
         std::unique_lock ul(timeout_m);
-        if (timeout_cv.wait_until(ul, timeout_time, [this]() { return !messages.empty(); }))
+        if (!timeout_cv.wait_until(ul, timeout_time, [this]() { return !messages.empty(); }))
             break;
 
         auto call = messages.pop_front();
@@ -639,9 +637,11 @@ game::state_type game::opponent_call()
         max_priority--;
     if (max_priority < 0)
     {
-        std::this_thread::sleep_for(
-            wall.tiger() / static_cast<float>(0xffff) * END_TURN_DELAY);
-        return state_type::draw;
+        goto NO_CALL;
+        // cur_player = order[0];
+        // std::this_thread::sleep_for(
+        //     wall.tiger() / static_cast<float>(0xffff) * END_TURN_DELAY);
+        // return state_type::draw;
     }
 
     if (max_priority > 6)
@@ -769,6 +769,8 @@ game::state_type game::opponent_call()
     }
 
     // all players pass or timeout
+NO_CALL:
+    cur_player = order[0];
     std::this_thread::sleep_for(
         wall.tiger() / static_cast<float>(0xffff) * END_TURN_DELAY);
     return state_type::draw;
@@ -808,7 +810,7 @@ void game::exhaustive_draw()
     while (players_responded != 0b1111)
     {
         std::unique_lock ul(timeout_m);
-        if (timeout_cv.wait_until(ul, timeout_time, [this]() { 
+        if (!timeout_cv.wait_until(ul, timeout_time, [this]() { 
                 return !messages.empty(); }))
             break;
 

@@ -500,13 +500,13 @@ int mj_score(int *fu, int *fan, unsigned short *yakus,
 
     if (n == 0)
         return 0;
-    
-    int m_score = 0, m_fu = 0, m_fan = 0;
+        
+    int m_score = 0;
     for (mj_size i = 0; i < n; ++i)
     {
         memcpy(m_yakus, yakus, sizeof(m_yakus));
-        m_fu = mj_fu(yakus, result+(4*i), pairs[i], ron, tsumo, prevailing_wind, seat_wind);
-        m_fan = mj_fan(yakus, result+(4*i), pairs[i], prevailing_wind, seat_wind);
+        int m_fu = mj_fu(yakus, result+(4*i), pairs[i], ron, tsumo, prevailing_wind, seat_wind);
+        int m_fan = mj_fan(yakus, result+(4*i), pairs[i], prevailing_wind, seat_wind);
 
         if (m_score < mj_basic_score(m_fu, m_fan+doras))
         {
