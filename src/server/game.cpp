@@ -927,28 +927,35 @@ void game::exhaustive_draw()
 {
     broadcast(msg::header::exhaustive_draw, msg::NO_INFO);
 
+    std::array<mj_bool, NUM_PLAYERS> tenpai;
+    std::fill(tenpai.begin(), tenpai.end(), MJ_MAYBE);
+
+    int players_tenpai = 0;
+    int players_responded = 0b0000;
+
     auto timeout_time = clock_type::now() + TENPAI_TIMEOUT;
 
-    std::array<mj_bool, NUM_PLAYERS> tenpai;
-    int players_tenpai = 0;
 
-    for (int p = 0; p < NUM_PLAYERS; ++p)
+    while (players_responded != 0b1111)
     {
-        auto response = players[p]->recv(timeout_time);
-        if (msg::type(response) == msg::header::call_tenpai)
+        std::unique_lock ul(timeout_m);
+        if (timeout_cv.wait_until(ul, timeout_time, [this]() { 
+                return !messages.empty(); }));
+            break;
+
+        auto call = messages.pop_front();
+        if (msg::type(call.data) == msg::header::call_tenpai)
         {
-            switch(msg::data<unsigned short>(response))
+            int player = player_id_map[call.id];
+            switch(msg::data<unsigned short>(call.data))
             {
             case msg::TENPAI:
-                tenpai[p] = MJ_TRUE;
+                tenpai[player] = MJ_TRUE;
             case msg::NO_TEN:
-                tenpai[p] = MJ_FALSE;
-            default:
-                tenpai[p] = MJ_MAYBE;
+                tenpai[player] = MJ_FALSE;
             }
+            players_responded |= 1 << player;
         }
-        else
-            tenpai[p] = MJ_MAYBE;
     }
 
     for (int p = 0; p < NUM_PLAYERS; ++p)
