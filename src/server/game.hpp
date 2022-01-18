@@ -51,7 +51,8 @@ public:
         DISCARD_TIMEOUT         = std::chrono::milliseconds(7000),
         OPPONENT_CALL_TIMEOUT   = std::chrono::milliseconds(1500),
         TENPAI_TIMEOUT          = std::chrono::milliseconds(1200),
-        END_TURN_DELAY          = std::chrono::milliseconds(2000);
+        END_TURN_DELAY          = std::chrono::milliseconds(2000),
+        NEW_ROUND_DELAY         = std::chrono::milliseconds(12600);
     
     static constexpr flag_type 
         RIICHI_FLAG             = 0x0001,
@@ -67,7 +68,9 @@ public:
 
     static std::unordered_map<game_id_type, game> games;
 
-    static std::array<char,5> suit;
+    static std::array<char, 5> suit;
+
+    static std::array<char, 4> directions;
 
 public:
     game(game_id_type id, std::ostream &server_log, std::string const &game_log_file, bool heads_up);

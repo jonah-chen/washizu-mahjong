@@ -85,14 +85,16 @@ void game::accept_spectator(client_ptr &&client)
  */
 void game::reconnect(client_ptr &&client)
 {
-    for (auto &player : players)
+    client_type::id_type uid = client->uid;
+    auto it = std::find_if(players.begin(), players.end(), 
+        [uid](client_ptr const &p){
+            return p->uid == uid && !p->is_open(); });
+
+
+    if (it != players.end())
     {
-        if (player->uid == client->uid && !player->is_open())
-        {
-            player = std::move(client);
-            server_log << "Player " << std::to_string(player->uid) << " reconnected.";
-            return;
-        }
+        *it = std::move(client);
+        server_log << "Player " << uid << " reconnected.";
     }
 }
 
@@ -414,6 +416,8 @@ void game::start_round()
 
     game_flags |= FIRST_TURN_FLAG;
 
+    game_log << directions[prevailing_wind] << dealer + 1 << std::endl;
+
     cur_tile = MJ_INVALID_TILE;
     cur_state = state_type::draw;
 }
@@ -595,7 +599,7 @@ game::state_type game::opponent_call()
         if (priority[max_priority] == MJ_TRUE && (
             max_priority > 6 ||
             (max_priority > 3 && num_call_tiles[6-max_priority] >= 3) ||
-            num_call_tiles[3-max_priority] >= 2
+            (max_priority <= 3 && max_priority > 0 && num_call_tiles[3-max_priority] >= 2)
         )) break;
 
         std::unique_lock ul(timeout_m);
@@ -952,3 +956,5 @@ void game::log_cur(char const *msg)
 std::unordered_map<unsigned short, game> game::games;
 
 std::array<char, 5> game::suit {'m', 'p', 's', 'w', 'd'};
+
+std::array<char, 4> game::directions {'E', 'S', 'W', 'N'};
