@@ -11,7 +11,7 @@ int main()
     interface.send(msg::header::my_id, msg::data<unsigned short>(msg));
     while (1)
     {
-        msg::buffer msg = interface.recv();
+        msg = interface.recv();
         // print the message
         std::cout << static_cast<char>(msg::type(msg)) << " " << msg::data<unsigned short>(msg) << std::endl;
     }

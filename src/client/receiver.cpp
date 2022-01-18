@@ -2,7 +2,6 @@
 
 R::message_type R::recv()
 {
-    message_type buf;
     std::unique_lock ul(m);
     cv.wait(ul, [this]{ return !q.empty(); });
     return q.pop_front();

@@ -226,12 +226,12 @@ mj_size mj_n_triples(mj_hand hand, mj_triple *triples, mj_size num_triples, mj_t
  * @brief Check the winning combinations that a hand can form.
  * 
  * @param hand The hand to check. @pre must be sorted.
- * @param open The open melds the player has called.
+ * @param o_melds The open melds the player has called.
  * @param m_result The sets of 4 melds that the is formed.
  * @param p_result The pair that the hand can form.
  * @return The number of winning combinations found.
  */
-mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *m_result, mj_pair *p_result);
+mj_size mj_n_agari(mj_hand hand, mj_meld o_melds, mj_meld *m_result, mj_pair *p_result);
 
 /**
  * @brief Check if a hand is tenpai.
@@ -241,11 +241,11 @@ mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *m_result, mj_pair *p_res
  * dealt.
  * 
  * @param hand The hand to check. @pre must be sorted.
- * @param open The open melds the player has called.
+ * @param o_melds The open melds the player has called.
  * @param result The IDs of different tiles the hand can win with.
  * @return The number of distinct tiles that the hand can win from.
  */
-mj_size mj_tenpai(mj_hand hand, mj_meld open, mj_id *result);
+mj_size mj_tenpai(mj_hand hand, mj_meld o_melds, mj_id *result);
 
 void mj_print_tile(mj_tile tile);
 void mj_print_pair(mj_pair pair);

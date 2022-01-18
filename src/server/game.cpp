@@ -262,7 +262,7 @@ game::state_type game::call_tsumo()
     if (yakus[MJ_YAKU_RICHII])
     {
         auto doras = dora_tiles.size();
-        for (int i = 0; i < doras; ++i)
+        for (std::size_t i = 0; i < doras; ++i)
             dora_tiles.push_back(wall.draw_dora());
     }
 
@@ -480,6 +480,7 @@ game::state_type game::self_call()
             return state_type::discard;
 
         case msg::header::discard_tile:
+        {
             auto discarded = msg::data<card_type>(buffer);
             if (mj_discard_tile(&hands[cur_player], discarded))
             {
@@ -496,6 +497,9 @@ game::state_type game::self_call()
                 players[cur_player]->send(msg::header::reject, msg::REJECT);
                 break; /* from switch, try again */
             }
+        }
+        default:
+            break;
         }
     }
 }
@@ -910,7 +914,7 @@ void game::chombo_penalty()
     }
     else if (cur_player == dealer)
     {
-        for (std::size_t p = 0; p < NUM_PLAYERS; ++p)
+        for (int p = 0; p < NUM_PLAYERS; ++p)
         {
             if (p == cur_player)
                 payment(p, -MJ_MANGAN*6);
@@ -920,7 +924,7 @@ void game::chombo_penalty()
     }
     else
     {
-        for (std::size_t p = 0; p < NUM_PLAYERS; ++p)
+        for (int p = 0; p < NUM_PLAYERS; ++p)
         {
             if (p==dealer)
                 payment(p, MJ_MANGAN * 2);

@@ -43,7 +43,7 @@ public:
     using game_id_type      = unsigned short;
 
 public:
-    static constexpr std::size_t NUM_PLAYERS = 4;
+    static constexpr int NUM_PLAYERS = 4;
 
     static constexpr std::chrono::duration
         CONNECTION_TIMEOUT      = std::chrono::milliseconds(400),

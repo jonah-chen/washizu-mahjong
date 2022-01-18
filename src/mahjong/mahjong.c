@@ -336,17 +336,17 @@ mj_size mj_n_triples(mj_hand hand, mj_triple *triples, mj_size num_triples, mj_t
     return count;
 }
 
-mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *m_result, mj_pair *p_result)
+mj_size mj_n_agari(mj_hand hand, mj_meld o_melds, mj_meld *m_result, mj_pair *p_result)
 {
     mj_id pairs[8];
     mj_size num_pairs = mj_pairs(hand, pairs);
 
-    mj_size const NUM_CLOSED_MELDS = MJ_MAX_TRIPLES_IN_HAND - open.size;
+    mj_size const NUM_CLOSED_MELDS = MJ_MAX_TRIPLES_IN_HAND - o_melds.size;
     if (NUM_CLOSED_MELDS == 0)
     {
         if (num_pairs)
         {
-            memcpy(m_result, &open, sizeof(mj_meld));
+            memcpy(m_result, &o_melds, sizeof(mj_meld));
             *p_result = MJ_PAIR(hand.tiles[0], hand.tiles[1]);
             return 1;
         }
@@ -408,9 +408,9 @@ mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *m_result, mj_pair *p_res
                     break;
                 if (j == 0 || MJ_TRIPLE_WEAK_EQ(cur->melds[k], prev->melds[k]) == MJ_FALSE)
                 {
-                    for (mj_size l = 0; l < open.size; ++l)
-                        cur->melds[NUM_CLOSED_MELDS+l] = open.melds[l];
-                    cur->size = NUM_CLOSED_MELDS + open.size;
+                    for (mj_size l = 0; l < o_melds.size; ++l)
+                        cur->melds[NUM_CLOSED_MELDS+l] = o_melds.melds[l];
+                    cur->size = NUM_CLOSED_MELDS + o_melds.size;
                     p_result[num_wins++] = cur_pair;
                     LOG_DEBUG("size: %d\n", cur->size);
                     break;
@@ -421,9 +421,9 @@ mj_size mj_n_agari(mj_hand hand, mj_meld open, mj_meld *m_result, mj_pair *p_res
     return num_wins;
 }
 
-mj_size mj_tenpai(mj_hand hand, mj_meld open, mj_id *result)
+mj_size mj_tenpai(mj_hand hand, mj_meld o_melds, mj_id *result)
 {
-    if (hand.size + 3*open.size != 13)
+    if (hand.size + 3*o_melds.size != 13)
         return 0;
 
     mj_meld triples[64];
@@ -465,7 +465,7 @@ mj_size mj_tenpai(mj_hand hand, mj_meld open, mj_id *result)
             memcpy(&tmp_hand, &hand, sizeof(mj_hand));
             tmp_hand.tiles[tmp_hand.size++] = MJ_TILE(suit, number, 0);
             mj_sort_hand(&tmp_hand);
-            mj_size num_wins = mj_n_agari(tmp_hand, open, triples, pairs);
+            mj_size num_wins = mj_n_agari(tmp_hand, o_melds, triples, pairs);
             if (num_wins)
             {
                 if (result)
@@ -493,7 +493,7 @@ mj_size mj_tenpai(mj_hand hand, mj_meld open, mj_id *result)
         memcpy(&tmp_hand, &hand, sizeof(mj_hand));
         tmp_hand.tiles[tmp_hand.size++] = MJ_TILE(MJ_WIND, number, 0);
         mj_sort_hand(&tmp_hand);
-        mj_size num_wins = mj_n_agari(tmp_hand, open, triples, pairs);
+        mj_size num_wins = mj_n_agari(tmp_hand, o_melds, triples, pairs);
         if (num_wins)
         {
             if (result)
@@ -518,7 +518,7 @@ mj_size mj_tenpai(mj_hand hand, mj_meld open, mj_id *result)
         memcpy(&tmp_hand, &hand, sizeof(mj_hand));
         tmp_hand.tiles[tmp_hand.size++] = MJ_TILE(MJ_DRAGON, number, 0);
         mj_sort_hand(&tmp_hand);
-        mj_size num_wins = mj_n_agari(tmp_hand, open, triples, pairs);
+        mj_size num_wins = mj_n_agari(tmp_hand, o_melds, triples, pairs);
         if (num_wins)
         {
             if (result)
