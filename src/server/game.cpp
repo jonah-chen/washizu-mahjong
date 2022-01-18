@@ -482,6 +482,9 @@ game::state_type game::self_call()
         case msg::header::discard_tile:
         {
             auto discarded = msg::data<card_type>(buffer);
+            if (discarded == cur_tile)
+                return state_type::tsumogiri;
+
             if (mj_discard_tile(&hands[cur_player], discarded))
             {
                 discards[cur_player].push_back(discarded);
@@ -512,25 +515,30 @@ game::state_type game::discard()
 
     game_flags &= ~KONG_FLAG;
 
-    if (msg::type(buffer) == msg::header::discard_tile && 
-        mj_discard_tile(&hands[cur_player], discarded))
+    if (msg::type(buffer) == msg::header::discard_tile)
     {
-        if (discarded != cur_tile && flags[cur_player] & (DOUBLE_RIICHI_FLAG | RIICHI_FLAG))
-            return state_type::chombo;
-        discards[cur_player].push_back(discarded);
-        broadcast(msg::header::tile, discarded);
-        cur_tile = discarded;
+        if (discarded == cur_tile)
+            return state_type::tsumogiri;
 
-        log_cur("discarded");
+        if (mj_discard_tile(&hands[cur_player], discarded))
+        {
+            if (flags[cur_player] & (DOUBLE_RIICHI_FLAG | RIICHI_FLAG))
+                return state_type::chombo;
+            discards[cur_player].push_back(discarded);
+            broadcast(msg::header::tile, discarded);
+            cur_tile = discarded;
 
-        return state_type::opponent_call;
-    }
-    else if (msg::type(buffer) != msg::header::timeout) // invalid, not timeout
-    {
-        players[cur_player]->send(msg::header::reject, msg::REJECT);
-        server_log << "Player with UID=" << std::to_string(players[cur_player]->uid) << 
-        " @" << players[cur_player]->ip() <<
-        " discarded an invalid tile.";
+            log_cur("discarded");
+
+            return state_type::opponent_call;
+        }
+        else 
+        {
+            players[cur_player]->send(msg::header::reject, msg::REJECT);
+            server_log << "Player with UID=" << std::to_string(players[cur_player]->uid) << 
+            " @" << players[cur_player]->ip() <<
+            " discarded an invalid tile.";
+        }
     }
     return state_type::tsumogiri;
 }
@@ -897,7 +905,7 @@ void game::tsumogiri()
     if (mj_discard_tile(&hands[cur_player], cur_tile))
     {
         discards[cur_player].push_back(cur_tile);
-        broadcast(msg::header::tile, cur_tile);
+        broadcast(msg::header::tsumogiri_tile, cur_tile);
         log_cur("tsumogiri");
     }
     cur_state = state_type::opponent_call;

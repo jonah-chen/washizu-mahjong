@@ -56,6 +56,7 @@ enum class header : char
     your_position           = 'P', /* number (0,1,2,3) */
     this_player_drew        = 'D', /* player */
     tile                    = 'T', /* 9 bit tile unique ID */
+    tsumogiri_tile          = 'G', /* 9 bit tile unique ID */
     this_player_pong        = '#', /* player */
     this_player_chow        = 'C', /* player */
     this_player_kong        = '$', /* player */
@@ -109,11 +110,11 @@ public:
     using container_type = std::deque<MsgType>;
 
 public:
-    explicit queue(std::condition_variable &notification) 
+    explicit queue(std::condition_variable &notification) noexcept
         : notification(notification) {}
     ~queue() = default;
 
-    queue(queue &&other) : container(std::move(other.container)) {}
+    queue(queue &&other) noexcept : container(std::move(other.container)) {}
 
     void push_back(MsgType &&message)
     {
@@ -125,7 +126,6 @@ public:
     void flush()
     {
         std::scoped_lock lock(mutex);
-        std::cout << "Flushed\n";
         container.clear();
     }
 
@@ -139,7 +139,7 @@ public:
         return elem;
     }
 
-    bool empty() const { return container.empty(); }
+    bool empty() const noexcept { return container.empty(); }
 
 private:
     container_type container {};

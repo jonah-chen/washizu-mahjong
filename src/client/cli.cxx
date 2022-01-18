@@ -98,7 +98,7 @@ int main()
                 std::cout << static_cast<char>(h) << " " << static_cast<int>(t) << std::endl;
             }
         }
-        else if (h==msg::header::tile)
+        else if (h==msg::header::tile || h==msg::header::tsumogiri_tile)
         {
             if (mj_discard_tile(&hands[cur_player], t))
             {
