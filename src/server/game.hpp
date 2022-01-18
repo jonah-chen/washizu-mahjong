@@ -72,6 +72,8 @@ public:
 
     static std::array<char, 4> directions;
 
+    static std::array<char, 4> delim;
+
 public:
     game(game_id_type id, std::ostream &server_log, std::string const &game_log_file, bool heads_up);
 

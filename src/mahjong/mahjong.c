@@ -176,7 +176,7 @@ typedef struct mj_hand_array
 
 static mj_hand_array *array_init()
 {
-    mj_hand_array *tree = malloc(sizeof(mj_hand_array));
+    mj_hand_array *tree = (mj_hand_array*)malloc(sizeof(mj_hand_array));
     tree->array = NULL;
     tree->size = 0;
     tree->count = 0;
@@ -186,9 +186,9 @@ static mj_hand_array *array_init()
 static void array_insert(mj_hand_array **arr, mj_tree_node node)
 {
     if ((*arr)->size)
-        (*arr)->array = realloc((*arr)->array, sizeof(mj_tree_node) * ((*arr)->size + 1));
+        (*arr)->array = (mj_tree_node*)realloc((*arr)->array, sizeof(mj_tree_node) * ((*arr)->size + 1));
     else
-        (*arr)->array = malloc(sizeof(mj_tree_node));
+        (*arr)->array = (mj_tree_node*)malloc(sizeof(mj_tree_node));
     
     (*arr)->array[((*arr)->size)++] = node;
     (*arr)->count += node.child->count;
@@ -537,8 +537,8 @@ void mj_print_tile(mj_tile tile)
         printf("???");
         return;
     }
-    char suit[5] = {'m', 'p', 's', 'w', 'd'};
-    char delim[4] = {' ', '_', '-', '^'};
+    char const suit[5] = {'m', 'p', 's', 'w', 'd'};
+    char const delim[4] = {' ', '_', '-', '^'};
     printf("%d%c%c", MJ_NUMBER1(tile), suit[MJ_SUIT(tile)], delim[(tile&0b11)]);
 #endif
 }

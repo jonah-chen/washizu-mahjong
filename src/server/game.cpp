@@ -393,6 +393,8 @@ void game::start_round()
         return;
     }
 
+    game_log << directions[prevailing_wind] << dealer + 1 << std::endl;
+
     for (auto &p_hand : hands)
         mj_empty_hand(&p_hand);
 
@@ -415,8 +417,6 @@ void game::start_round()
     new_dora();
 
     game_flags |= FIRST_TURN_FLAG;
-
-    game_log << directions[prevailing_wind] << dealer + 1 << std::endl;
 
     cur_tile = MJ_INVALID_TILE;
     cur_state = state_type::draw;
@@ -954,7 +954,7 @@ mj_id game::calc_dora(game::card_type tile)
 void game::log_cur(char const *msg)
 {
     game_log << cur_player << " " << msg << " " << MJ_NUMBER1(cur_tile) << 
-        suit[MJ_SUIT(cur_tile)] << std::endl;
+        suit[MJ_SUIT(cur_tile)] << delim[cur_tile & 3]<< std::endl;
 }
 
 std::unordered_map<unsigned short, game> game::games;
@@ -962,3 +962,5 @@ std::unordered_map<unsigned short, game> game::games;
 std::array<char, 5> game::suit {'m', 'p', 's', 'w', 'd'};
 
 std::array<char, 4> game::directions {'E', 'S', 'W', 'N'};
+
+std::array<char, 4> game::delim {' ', '_', '-', '^'};
