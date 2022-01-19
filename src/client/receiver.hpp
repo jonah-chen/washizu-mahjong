@@ -5,7 +5,7 @@
 #include <asio.hpp>
 #include <thread>
 #include <condition_variable>
-#include "server/message.hpp"
+#include "utils/message.hpp"
 
 /**
  * @brief An interface to safely send and receive messages from the server,
