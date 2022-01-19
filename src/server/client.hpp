@@ -16,11 +16,11 @@ struct identified_msg
 class game_client 
 {
 public:
-    using protocall = asio::ip::tcp;
-    using socket_type = protocall::socket;
-    using id_type = unsigned short;
-    using queue_type = msg::queue<identified_msg>;
-    using clock_type = std::chrono::steady_clock;
+    using protocall     = asio::ip::tcp;
+    using socket_type   = protocall::socket;
+    using id_type       = unsigned short;
+    using queue_type    = msg::queue<identified_msg>;
+    using clock_type    = std::chrono::steady_clock;
 
 public:
     static constexpr std::chrono::duration 
@@ -97,7 +97,7 @@ private:
     std::mutex ping_m;
     std::condition_variable ping_recv;
 
-    socket_type socket;
+    socket_type socket { context };
 
     void listening();
 

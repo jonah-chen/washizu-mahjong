@@ -12,6 +12,31 @@
 #include <memory>
 #include <map>
 
+template <std::size_t MaxSize>
+struct optim
+{
+    optim() = delete;
+    template <typename Type>
+    struct allocator : public std::allocator<Type>
+    {
+        Type *allocate(size_t n) 
+        {
+            if (n > MaxSize)
+                return new Type[n];
+            return data;
+        }
+
+        void deallocate(Type *ptr, size_t n)
+        {
+            if (n > MaxSize)
+                delete[] ptr;
+        }
+    private:
+        Type data[MaxSize];
+    };
+};
+
+
 /**
  * @brief This enum class is used to represent the game state.
  */
@@ -27,24 +52,24 @@ enum class turn_state {
 class game
 {
 public:
+    static constexpr int NUM_PLAYERS            = 4;
+    static constexpr int MAX_DISCARD_PER_PLAYER = 24;
     using protocall         = asio::ip::tcp;
     using client_type       = game_client;
     using client_ptr        = std::unique_ptr<client_type>;
-    using players_type      = std::vector<client_ptr>;
+    using players_type      = std::vector<client_ptr, optim<NUM_PLAYERS>::allocator<client_ptr>>;
     using spectators_type   = std::list<client_ptr>;
     using message_type      = identified_msg;
     using flag_type         = unsigned short;
     using deck_type         = deck;
     using card_type         = typename deck_type::card_type;
     using score_type        = int;
-    using discards_type     = std::vector<card_type>;
+    using discards_type     = std::vector<card_type, optim<MAX_DISCARD_PER_PLAYER>::allocator<card_type>>;
     using state_type        = turn_state;
     using clock_type        = typename client_type::clock_type;
     using game_id_type      = unsigned short;
 
 public:
-    static constexpr int NUM_PLAYERS = 4;
-
     static constexpr std::chrono::duration
         CONNECTION_TIMEOUT      = std::chrono::milliseconds(400),
         SELF_CALL_TIMEOUT       = std::chrono::milliseconds(1500),

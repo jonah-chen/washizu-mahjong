@@ -31,7 +31,7 @@ game::game(unsigned short id, std::ostream &server_log,
 
     players.reserve(NUM_PLAYERS);
     for (auto &discard_pile : discards)
-        discard_pile.reserve(20);
+        discard_pile.reserve(MAX_DISCARD_PER_PLAYER);
 
     while (players.size() < NUM_PLAYERS)
     {
@@ -566,7 +566,7 @@ game::state_type game::opponent_call()
     
     // create temp hand and add the ron tile to it
         mj_hand tmp_hand;
-        memcpy(&tmp_hand, &hands[p], sizeof(mj_hand));
+        memcpy(&tmp_hand, &hands[p], sizeof(tmp_hand));
         tmp_hand.tiles[tmp_hand.size++] = cur_tile;
         mj_sort_hand(&tmp_hand);
 
@@ -605,9 +605,7 @@ game::state_type game::opponent_call()
         while (priority[max_priority] == MJ_FALSE && max_priority >= 0)
             max_priority--;
         if (max_priority < 0)
-        {
             goto NO_CALL;
-        }
         if (priority[max_priority] == MJ_TRUE && (
             max_priority > 6 ||
             (max_priority > 3 && num_call_tiles[6-max_priority] >= 3) ||
@@ -652,13 +650,7 @@ game::state_type game::opponent_call()
     while (priority[max_priority] != MJ_TRUE && max_priority >= 0)
         max_priority--;
     if (max_priority < 0)
-    {
         goto NO_CALL;
-        // cur_player = order[0];
-        // std::this_thread::sleep_for(
-        //     wall.tiger() / static_cast<float>(0xffff) * END_TURN_DELAY);
-        // return state_type::draw;
-    }
 
     if (max_priority > 6)
     {
@@ -718,7 +710,8 @@ game::state_type game::opponent_call()
         }
         broadcast(msg::header::yaku_list, msg::END_STREAM);
 
-        std::transform(flags.begin(), flags.end(), flags.begin(), [](flag_type f){ return f & ~IPPATSU_FLAG; });
+        std::transform(flags.begin(), flags.end(), flags.begin(), 
+            [](flag_type f){ return f & ~IPPATSU_FLAG; });
 
         if (ron_player == dealer)
         {
@@ -746,7 +739,8 @@ game::state_type game::opponent_call()
         game_flags |= OTHER_KONG_FLAG;
         cur_player = kong_player;
 
-        std::transform(flags.begin(), flags.end(), flags.begin(), [](flag_type f){ return f & ~IPPATSU_FLAG; });
+        std::transform(flags.begin(), flags.end(), flags.begin(), 
+            [](flag_type f){ return f & ~IPPATSU_FLAG; });
             
         return state_type::after_kong;
     }
@@ -762,8 +756,8 @@ game::state_type game::opponent_call()
         
         cur_player = pong_player;
 
-        std::transform(flags.begin(), flags.end(), flags.begin(), [](flag_type f){ return f & ~IPPATSU_FLAG; });
-            
+        std::transform(flags.begin(), flags.end(), flags.begin(), 
+            [](flag_type f){ return f & ~IPPATSU_FLAG; });
 
         return state_type::discard;
     }
@@ -778,8 +772,8 @@ game::state_type game::opponent_call()
         mj_add_meld(&melds[cur_player], MJ_OPEN_TRIPLE(MJ_TRIPLE(
             cur_tile, call_tiles[cur_player][0], call_tiles[cur_player][1])));
 
-        std::transform(flags.begin(), flags.end(), flags.begin(), [](flag_type f){ return f & ~IPPATSU_FLAG; });
-            
+        std::transform(flags.begin(), flags.end(), flags.begin(), 
+            [](flag_type f){ return f & ~IPPATSU_FLAG; });
 
         return state_type::discard;
     }

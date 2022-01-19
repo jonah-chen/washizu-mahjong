@@ -1,7 +1,7 @@
 #include "client.hpp"
 
 game_client::game_client(queue_type &shared_q, unsigned short &game_id, bool &as_player) 
-    : uid(next_uid()), q(shared_q), socket(context)
+    : uid(next_uid()), q(shared_q)
 {
     acceptor.accept(socket);
     std::string ip = socket.remote_endpoint().address().to_string();
