@@ -3,39 +3,14 @@
 
 #include "deck.hpp"
 #include "client.hpp"
+#include "utils/optim.hpp"
 
 #include <fstream>
 #include <array>
 #include <list>
 #include <vector>
 #include <unordered_map>
-#include <memory>
 #include <map>
-
-template <std::size_t MaxSize>
-struct optim
-{
-    optim() = delete;
-    template <typename Type>
-    struct allocator : public std::allocator<Type>
-    {
-        Type *allocate(size_t n) 
-        {
-            if (n > MaxSize)
-                return new Type[n];
-            return data;
-        }
-
-        void deallocate(Type *ptr, size_t n)
-        {
-            if (n > MaxSize)
-                delete[] ptr;
-        }
-    private:
-        Type data[MaxSize];
-    };
-};
-
 
 /**
  * @brief This enum class is used to represent the game state.

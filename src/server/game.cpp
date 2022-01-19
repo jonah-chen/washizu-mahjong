@@ -176,8 +176,12 @@ void game::new_dora()
 void game::payment(int player, score_type score)
 {
     scores[player] += score;
-    broadcast(msg::header::this_player_won, player);
-    broadcast(msg::header::this_many_points, score);
+    
+    if (!((game_flags & HEADS_UP_FLAG) && (player & 1)))
+    {
+        broadcast(msg::header::this_player_won, player);
+        broadcast(msg::header::this_many_points, score);
+    }
 }
 
 /**
@@ -392,6 +396,8 @@ void game::start_round()
         cur_state = state_type::game_over;
         return;
     }
+
+    broadcast(msg::header::new_round, (prevailing_wind<<2) + dealer);
 
     game_log << directions[prevailing_wind] << dealer + 1 << std::endl;
 

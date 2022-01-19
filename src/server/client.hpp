@@ -3,7 +3,7 @@
 
 #define ASIO_STANDALONE
 #include <asio.hpp>
-#include "message.hpp"
+#include "utils/message.hpp"
 #include <iostream>
 #include <unordered_set>
 

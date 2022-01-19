@@ -73,7 +73,8 @@ enum class header : char
     winning_yaku            = 'Y', /* yaku_type */
     yaku_fan_count          = 'F', /* int */
     fu_count                = 'U', /* int */
-    exhaustive_draw         = 'E',
+    exhaustive_draw         = 'E', /* No Info */
+    new_round               = 'N', /* direction + 4*wind */
 
     timeout                 = '\0'
 };
