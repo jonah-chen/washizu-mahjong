@@ -62,7 +62,7 @@ int main(int argc, char **argv)
             id << GAME_LOG_SUFFIX;
         game::games.try_emplace(id, id, server_log, ss.str(), true);
 
-        server_log << time() << "SERVER: new game " << id << " started\n";
+        server_log << time() << "SERVER: new game " << id << " started" << std::endl;
     }
     
     return 0;

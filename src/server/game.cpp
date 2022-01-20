@@ -64,6 +64,8 @@ game::game(unsigned short id, std::ostream &server_log,
         players[pos]->send(msg::header::your_position, pos);
         player_id_map[players[pos]->uid] = pos;
     }
+
+    dora_tiles.reserve(10);
     
     main_thread = std::thread(&game::play, this);
     main_thread.detach();
@@ -94,7 +96,7 @@ void game::reconnect(client_ptr &&client)
     if (it != players.end())
     {
         *it = std::move(client);
-        server_log << "Player " << uid << " reconnected.";
+        server_log << "Player " << uid << " reconnected." << std::endl;
     }
 }
 
@@ -462,7 +464,7 @@ game::state_type game::self_call()
                 players[cur_player]->send(msg::header::reject, msg::REJECT);
                 server_log << "Player with UID=" << std::to_string(players[cur_player]->uid) 
                     << " @" << players[cur_player]->ip() 
-                    << " called an invalid kong." << "\n";
+                    << " called an invalid kong." << std::endl;
                 break; /* from switch, try again */
             }
 
@@ -519,6 +521,12 @@ game::state_type game::discard()
     msg::buffer buffer = fetch_cur(timeout_time);
     auto discarded = msg::data<card_type>(buffer);
 
+    if (game_flags & KONG_FLAG && dora_tiles.size() >= 5)
+    {
+        broadcast(msg::header::game_draw, msg::FOUR_KONGS); 
+        return state_type::renchan;
+    }
+
     game_flags &= ~KONG_FLAG;
 
     if (msg::type(buffer) == msg::header::discard_tile)
@@ -543,7 +551,7 @@ game::state_type game::discard()
             players[cur_player]->send(msg::header::reject, msg::REJECT);
             server_log << "Player with UID=" << std::to_string(players[cur_player]->uid) << 
             " @" << players[cur_player]->ip() <<
-            " discarded an invalid tile.";
+            " discarded an invalid tile." << std::endl;
         }
     }
     return state_type::tsumogiri;
@@ -812,7 +820,7 @@ void game::renchan()
 
 void game::exhaustive_draw()
 {
-    broadcast(msg::header::exhaustive_draw, msg::NO_INFO);
+    broadcast(msg::header::game_draw, msg::EXHAUSTIVE_DRAW);
 
     std::array<mj_bool, NUM_PLAYERS> tenpai;
     std::fill(tenpai.begin(), tenpai.end(), MJ_MAYBE);

@@ -1,9 +1,10 @@
 #include "game.hpp"
+#include "mahjong/yaku.h"
 #include <sstream>
 
 static void inline sep()
 {
-    std::cout << "----------------------------------------\n";
+    std::cout << "*******************************************\n";
 }
 
 game::game()
@@ -11,15 +12,15 @@ game::game()
     buf = interface.recv();
 
     if (msg::type(buf)!=msg::header::your_id)
-    {
         throw server_exception("Could not acquire id from server.");
-    }
+
     my_uid = msg::data<msg::id_type>(buf);
 
     interface.send(msg::header::join_as_player, msg::NEW_PLAYER);
     interface.send(msg::header::my_id, my_uid);
 
-    discard_pile.reserve(24);
+    for (auto &d_pile : discards)
+        d_pile.reserve(MAX_DISCARD_PER_PLAYER);
 
     while (true) 
     {
@@ -38,6 +39,9 @@ game::game()
         }
     }
     start_round();
+
+    cmd_thread = std::thread(&game::command, this);
+    cmd_thread.detach();
 }
 
 void game::start_round()
@@ -50,10 +54,14 @@ void game::start_round()
     }
     prevailing_wind = msg::data<unsigned short>(buf) >> 2;
     round_no = msg::data<unsigned short>(buf) & 3;
-    seat_wind = (4 + my_pos - round_no) & 3;
+    seat_wind = (my_pos - round_no) & 3;
 
     for (auto &hand : hands)
         mj_empty_hand(&hand);
+    for (auto &discards : discards)
+        discards.clear();
+    for (auto &p_melds : melds)
+        mj_empty_melds(&p_melds);
     
     msg::header h;
     mj_tile t;
@@ -67,10 +75,20 @@ void game::start_round()
             if (h == msg::header::this_player_drew)
                 interface.recv(h,t);
             else
-                throw 0;
+                throw server_exception("Round started improperly.");
             mj_add_tile(&hands[p],t);
         }
     }
+
+    interface.recv(h, t);
+    if (h != msg::header::dora_indicator)
+        throw server_exception("Round started improperly.");
+    
+    doras.reserve(10);
+    doras.push_back(t);
+
+    cur_player = round_no;
+    in_riichi = false;
 }
 
 void game::draw(int player)
@@ -81,8 +99,17 @@ void game::draw(int player)
         std::cerr << "You cannot draw something that is not a tile.\n";
         invalid_msg();
     }
-    mj_tile t = msg::data<mj_tile>(buf);
 
+    sep();
+
+    cur_tile = msg::data<mj_tile>(buf);
+    mj_add_tile(&hands[player], cur_tile);
+    std::cout << "Player " << player << " drew ";
+    mj_print_tile(cur_tile);
+    std::cout << '\n';    
+    cur_player = player;
+    if (cur_player == my_pos)
+        after_draw();
 }
 
 void game::turn()
@@ -92,15 +119,22 @@ void game::turn()
     {
     case msg::header::this_player_drew:
         draw(msg::data<int>(buf));
-    case msg::header::tile:
-        std::cout << "Player " << cur_player << " discarded ";
-        mj_print_tile(msg::data<mj_tile>(buf));
+        break;
+    case msg::header::tile: case msg::header::tsumogiri_tile:
+    {
+        cur_tile = msg::data<mj_tile>(buf);
+        std::cout << "Player " << cur_player << 
+            (msg::type(buf)==msg::header::tsumogiri_tile ? 
+            " tsumogiri " : " discarded ");
+        mj_print_tile(cur_tile);
         std::cout << '\n';
 
-    case msg::header::tsumogiri_tile:
-
-
-
+        mj_discard_tile(&hands[cur_player], cur_tile);
+        discards[cur_player].push_back(cur_tile);
+        if (cur_player != my_pos)
+            check_calls();
+    }
+    
     default:
         break;
     }
@@ -109,8 +143,135 @@ void game::turn()
 void game::invalid_msg() const
 {
     std::stringstream ss;
+    while(1)
     ss << "Unexpected message from server " << 
         static_cast<char>(msg::type(buf)) << " " << 
         msg::data<unsigned short>(buf) << ".";
     throw server_exception(ss.str());
+}
+
+void game::check_calls()
+{
+    auto ron = mj_tenpai(hands[my_pos], melds[my_pos], nullptr);
+
+    auto pong = mj_pong_available(hands[my_pos], cur_tile);
+    auto kong = mj_kong_available(hands[my_pos], cur_tile);
+    auto chow = (((my_pos - cur_player) & 3) == 1) ? 
+        mj_chow_available(hands[my_pos], cur_tile, c_pairs.data()) : 0;
+
+    if (ron)
+        std::cout << "R) Call Ron\n";
+    if (pong)
+        std::cout << "P) Call Pong\n";
+    if (kong)
+        std::cout << "K) Call Kong\n";
+    
+    for (mj_size i = 0; i < chow; ++i)
+    {
+        std::cout << 'C' + i << ") Call Chow with ";
+        mj_print_pair(c_pairs[i]);
+        std::cout << '\n';
+    }
+    if (ron || pong || kong || chow)
+        std::cout << "p) Pass\n";
+}
+
+void game::after_draw()
+{
+    print_state();
+    if (in_riichi)
+    {
+        std::cout << "You are in riichi:\nT) Tsumo\n";
+        if (mj_closed_kong_available(hands[my_pos], cur_tile) || 
+            mj_open_kong_available(melds[my_pos], cur_tile))
+            std::cout << "K) Call Kong\n";
+        std::cout << "G) Tsumogiri\n";
+        return;
+    }
+    if (mj_tenpai(hands[my_pos], melds[my_pos], nullptr))
+    {
+        std::cout << "You are tenpai.\n";
+        std::cout << "T) Tsumo\n";
+        std::cout << "r) Riichi\n";
+        if (mj_closed_kong_available(hands[my_pos], cur_tile) || 
+            mj_open_kong_available(melds[my_pos], cur_tile))
+            std::cout << "K) Call Kong\n";
+    }
+    else
+        interface.send(msg::header::pass_calls);
+
+    std::cout << "1-" << hands[my_pos].size << ") Discard Tile\n";
+}
+
+void game::print_state() const
+{    
+    for (int i = 0; i < 4; ++i)
+    {
+        std::cout << "Player " << i << (i==my_pos ? " [YOU]:\n" : ":\n");
+        if (i == my_pos)
+            std::cout << " 1  2  3  4  5  6  7  8  9 10 11 12 13 14\n";
+        mj_print_hand(hands[i]);
+        if (i == my_pos)
+        {
+            for (int p = 0; hands[my_pos].tiles[p] != cur_tile && p < hands[my_pos].size; ++p)
+                std::cout << "   ";
+            std::cout << " !\n";
+        }
+
+        mj_print_meld(melds[i]);
+        std::cout << '\n';
+        std::cout << "Discards:";
+        for (auto &t : discards[i])
+        {
+            std::cout << ' ';
+            mj_print_tile(t);
+        }
+        std::cout << "\n----------------------------------------\n";
+    }
+}
+
+#define DEBUG
+#ifdef DEBUG
+#define DEBUG_PRINT(x) std::cout << x
+#else 
+#define DEBUG_PRINT(x)
+#endif 
+
+void game::command()
+{
+    DEBUG_PRINT("You can now use commands.\n");
+    std::string cmd;
+    while (cmd != "quit")
+    {
+        std::cin >> cmd;
+
+        switch (cmd[0])
+        {
+        case 'R':
+            interface.send(msg::header::call_ron);
+            DEBUG_PRINT("Tried to call Ron\n");
+            break;
+        case 'T':
+            interface.send(msg::header::call_tsumo);
+            DEBUG_PRINT("Tried to call Tsumo\n");
+            break;
+        case 'r':
+            interface.send(msg::header::call_riichi);
+            DEBUG_PRINT("Tried to call Riichi\n");
+            break;
+        case 'P':
+        case 'K':
+        case 'G':
+            interface.send(msg::header::tsumogiri_tile, cur_tile);
+            DEBUG_PRINT("Tried to tsumogiri\n");
+            break;
+        case '0' ... '9':
+            interface.send(msg::header::discard_tile, 
+                hands[my_pos].tiles[std::stoi(cmd)-1]);
+            DEBUG_PRINT("Tried to discard " << cmd << '\n');
+            break;
+        default:
+            std::cout << "Invalid command. Use \"quit\" to quit.\n";
+        }
+    }
 }

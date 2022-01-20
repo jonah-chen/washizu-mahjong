@@ -28,6 +28,10 @@ static constexpr id_type
     TENPAI          = 0x1009,
     NO_TEN          = 0x100a,
     NO_INFO         = 0x6083,
+    EXHAUSTIVE_DRAW = 0x100b,
+    FOUR_KONGS      = 0x100c,
+    NINE_TERMINALS  = 0x100d,
+    FOUR_WINDS      = 0x100e,
     TIMEOUT         = 0x0000;
 
 enum class header : char
@@ -35,7 +39,7 @@ enum class header : char
     my_id                   = 'e', /* uid original */
     join_as_player          = 'p', /* magic number */
     join_as_spectator       = 's', /* game id */
-    draw_tile               = 'd', /* uid */
+//    draw_tile               = 'd', /* uid */
     discard_tile            = 't', /* 9-bit tile unique ID */
     call_with_tile          = 'w', /* 9-bit tile unique ID */
     call_pong               = '3', /* uid */
@@ -44,7 +48,7 @@ enum class header : char
     call_riichi             = 'r', /* uid */
     call_ron                = '*', /* uid */
     call_tsumo              = '+', /* uid */
-    ask_for_draw            = 'd', /* uid */
+//    ask_for_draw            = 'd', /* uid */
     pass_calls              = 'n', /* uid */
     call_tenpai             = 'i',
 
@@ -73,7 +77,7 @@ enum class header : char
     winning_yaku            = 'Y', /* yaku_type */
     yaku_fan_count          = 'F', /* int */
     fu_count                = 'U', /* int */
-    exhaustive_draw         = 'E', /* No Info */
+    game_draw               = 'E', /* No Info */
     new_round               = 'N', /* direction + 4*wind */
 
     timeout                 = '\0'
@@ -133,8 +137,6 @@ public:
     MsgType pop_front()
     {
         std::scoped_lock lock(mutex);
-        if (empty())
-            throw 0;
         MsgType elem = container.front();
         container.pop_front();
         return elem;

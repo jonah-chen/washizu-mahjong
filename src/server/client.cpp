@@ -23,7 +23,7 @@ game_client::game_client(queue_type &shared_q, unsigned short &game_id, bool &as
     }
     catch (const std::exception& e)
     {
-        std::cerr << e.what() << '\n';
+        std::cerr << "game_client::game_client raised " << e.what() << std::endl;
         socket.close();
         return;
     }
@@ -95,14 +95,18 @@ void game_client::listening()
         }
         catch(const std::exception& e)
         {
-            std::cerr << e.what() << '\n';
+            std::cerr << "Listening thread raised: " << e.what() << std::endl;
             socket.close();
         }
 
         if (msg::type(buf) == msg::header::ping)
             ping_recv.notify_one();
         else
+        {
+            std::cout << "Received from " << uid << ": " << (char)msg::type(buf) << 
+            msg::data<unsigned short>(buf) << std::endl;
             q.push_back({uid, buf});
+        }
     }
 }
 

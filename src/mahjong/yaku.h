@@ -126,7 +126,8 @@ int mj_yakuman(unsigned short *yakus, mj_meld const *melds, mj_pair pair, mj_til
 int mj_basic_score(int fu, int fan);
 
 int mj_score(int *fu, int *fan, unsigned short *yakus, 
-    mj_hand const *hand, mj_meld const *melds, mj_tile ron, mj_bool tsumo, int prevailing_wind, int seat_wind);
+    mj_hand const *hand, mj_meld const *melds, mj_tile ron, mj_bool tsumo, 
+    int prevailing_wind, int seat_wind);
 
 void mj_print_yaku(unsigned short const *yakus);
 

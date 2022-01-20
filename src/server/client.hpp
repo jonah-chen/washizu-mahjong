@@ -63,7 +63,7 @@ public:
         }
         catch(const std::exception& e)
         {
-            std::cerr << e.what() << '\n';
+            std::cerr << "Send raised exception: " << e.what() << std::endl;
             socket.close();
         }
         return 0;

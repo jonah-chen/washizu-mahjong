@@ -32,25 +32,28 @@ public:
     using protocall         = asio::ip::tcp;
     using client_type       = game_client;
     using client_ptr        = std::unique_ptr<client_type>;
-    using players_type      = std::vector<client_ptr, optim<NUM_PLAYERS>::allocator<client_ptr>>;
+    using players_allocator = optim<NUM_PLAYERS>::allocator<client_ptr>;
+    using players_type      = std::vector<client_ptr, players_allocator>;
     using spectators_type   = std::list<client_ptr>;
     using message_type      = identified_msg;
     using flag_type         = unsigned short;
     using deck_type         = deck;
     using card_type         = typename deck_type::card_type;
     using score_type        = int;
-    using discards_type     = std::vector<card_type, optim<MAX_DISCARD_PER_PLAYER>::allocator<card_type>>;
+    using discards_allocator= optim<MAX_DISCARD_PER_PLAYER>::allocator<card_type>;
+    using discards_type     = std::vector<card_type, discards_allocator>;
     using state_type        = turn_state;
     using clock_type        = typename client_type::clock_type;
     using game_id_type      = unsigned short;
+    using doras_allocator   = optim<10>::allocator<card_type>;
 
 public:
     static constexpr std::chrono::duration
         CONNECTION_TIMEOUT      = std::chrono::milliseconds(400),
         SELF_CALL_TIMEOUT       = std::chrono::milliseconds(1500),
         DISCARD_TIMEOUT         = std::chrono::milliseconds(7000),
-        OPPONENT_CALL_TIMEOUT   = std::chrono::milliseconds(1500),
-        TENPAI_TIMEOUT          = std::chrono::milliseconds(1200),
+        OPPONENT_CALL_TIMEOUT   = std::chrono::milliseconds(7000),
+        TENPAI_TIMEOUT          = std::chrono::milliseconds(10000),
         END_TURN_DELAY          = std::chrono::milliseconds(2000),
         NEW_ROUND_DELAY         = std::chrono::milliseconds(12600);
     
@@ -142,8 +145,8 @@ private:
     deck_type wall;
     std::ostream &server_log;
     std::ofstream game_log;
-    flag_type game_flags;   
-    std::vector<card_type> dora_tiles; 
+    flag_type game_flags;
+    std::vector<card_type, doras_allocator> dora_tiles; 
     int prevailing_wind { MJ_EAST };
     int dealer { 0 };
     int cur_player { 0 };
@@ -152,7 +155,7 @@ private:
     score_type deposit {};
     score_type bonus_score {};
     unsigned short round {};
-    std::map<client_type::id_type,int> player_id_map;
+    std::map<client_type::id_type, int> player_id_map;
 
     /* Aux Objects */
     std::thread main_thread;

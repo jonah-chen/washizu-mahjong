@@ -31,6 +31,13 @@ public:
     void send(msg::header header, ObjType obj)
     {
         socket.send(asio::buffer(msg::buffer_data(header, obj), msg::BUFFER_SIZE));
+        std::cout << "Sent something\n";
+    }
+
+    void send(msg::header header)
+    {
+        socket.send(asio::buffer(msg::buffer_data(
+            header, msg::NO_INFO), msg::BUFFER_SIZE));
     }
 
     message_type recv();
@@ -42,6 +49,8 @@ public:
         header = msg::type(cur_msg);
         obj = msg::data<ObjType>(cur_msg);
     }
+
+    bool available() const noexcept { return !q.empty(); }
 
 private:
     asio::io_context context;
