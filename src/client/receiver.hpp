@@ -31,7 +31,6 @@ public:
     void send(msg::header header, ObjType obj)
     {
         socket.send(asio::buffer(msg::buffer_data(header, obj), msg::BUFFER_SIZE));
-        std::cout << "Sent something\n";
     }
 
     void send(msg::header header)

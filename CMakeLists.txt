@@ -16,7 +16,8 @@ add_executable(Server src/server/deck.hpp src/server/deck.cpp
     src/server/game.hpp src/server/game.cpp src/server/client.cpp
     src/server/main.cxx)
 add_executable(DummyClient src/client/dummy.cxx src/client/receiver.cpp)
-add_executable(CLIClient src/client/cli.cxx src/client/receiver.cpp)
+add_executable(CLIClient src/client/cli.cxx src/client/receiver.cpp 
+    src/client/game.cpp)
 target_link_libraries(TestMahjong PRIVATE Mahjong)
 target_link_libraries(Server PRIVATE Mahjong pthread)
 target_link_libraries(DummyClient PRIVATE pthread)

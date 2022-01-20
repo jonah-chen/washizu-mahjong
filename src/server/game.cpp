@@ -17,7 +17,7 @@
  * the seats are sent to them.
  * 
  * Then, the game thread starts with the shuffling of the tiles and the initial
- * draws.
+ * draws.n24707
  */
 game::game(unsigned short id, std::ostream &server_log, 
         std::string const &game_log_dir, bool heads_up)
@@ -165,6 +165,9 @@ void game::new_dora()
     dora_tiles.push_back(wall.draw_dora());
     lock.unlock();
 
+    game_log << "Dora: " << MJ_NUMBER1(dora_tiles.back()) << 
+        suit[MJ_SUIT(dora_tiles.back())] << delim[dora_tiles.back() & 3] << std::endl;
+
     broadcast(msg::header::dora_indicator, dora_tiles.back());
 }
 
@@ -247,6 +250,7 @@ bool game::self_call_kong(game::card_type with)
  */
 game::state_type game::call_tsumo()
 {
+    game_log << cur_player << " tsumo" << std::endl;
     broadcast(msg::header::this_player_tsumo, cur_player);
     broadcast(msg::header::this_player_hand, cur_player);
     broadcast(msg::header::closed_hand, msg::START_STREAM);
@@ -402,6 +406,8 @@ void game::start_round()
     broadcast(msg::header::new_round, (prevailing_wind<<2) + dealer);
 
     game_log << directions[prevailing_wind] << dealer + 1 << std::endl;
+    game_log << scores[0] << " " << scores[1] << " " << scores[2] << " " 
+        << scores[3] << std::endl;
 
     for (auto &p_hand : hands)
         mj_empty_hand(&p_hand);
@@ -454,6 +460,7 @@ game::state_type game::self_call()
         switch (ty)
         {
         case msg::header::timeout:
+            std::cout << "self call timeout " << cur_player << std::endl;
             return state_type::tsumogiri;
         case msg::header::call_kong:
             aux = fetch_cur(timeout_time);
@@ -598,13 +605,12 @@ game::state_type game::opponent_call()
 
 
     std::array<mj_bool, 10> priority {};
-    std::array<std::array<card_type, 3>, 3> call_tiles {};
-    std::array<int, 3> num_call_tiles {};
+    std::array<std::vector<card_type, optim<4>::allocator<card_type>>, 3> call_tiles;
 
     priority[0] = mj_chow_available(hands[order[0]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
-    priority[1] = mj_pong_available(hands[order[2]], cur_tile) ? MJ_MAYBE : MJ_FALSE;
-    priority[2] = mj_pong_available(hands[order[1]], cur_tile) ? MJ_MAYBE : MJ_FALSE;
-    priority[3] = mj_pong_available(hands[order[0]], cur_tile) ? MJ_MAYBE : MJ_FALSE;
+    priority[1] = mj_pong_available(hands[order[2]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
+    priority[2] = mj_pong_available(hands[order[1]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
+    priority[3] = mj_pong_available(hands[order[0]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
     priority[4] = mj_kong_available(hands[order[2]], cur_tile) ? MJ_MAYBE : MJ_FALSE;
     priority[5] = mj_kong_available(hands[order[1]], cur_tile) ? MJ_MAYBE : MJ_FALSE;
     priority[6] = mj_kong_available(hands[order[0]], cur_tile) ? MJ_MAYBE : MJ_FALSE;
@@ -622,8 +628,9 @@ game::state_type game::opponent_call()
             goto NO_CALL;
         if (priority[max_priority] == MJ_TRUE && (
             max_priority > 6 ||
-            (max_priority > 3 && num_call_tiles[6-max_priority] >= 3) ||
-            (max_priority <= 3 && max_priority > 0 && num_call_tiles[3-max_priority] >= 2)
+            (max_priority > 3 && call_tiles[6-max_priority].size() >= 3) ||
+            (max_priority <= 3 && max_priority > 0 && call_tiles[3-max_priority].size() >= 2) ||
+            (max_priority == 0 && call_tiles[0].size() >= 2)
         )) break;
 
         std::unique_lock ul(timeout_m);
@@ -634,28 +641,36 @@ game::state_type game::opponent_call()
         int player = player_id_map[call.id];
         if (player == cur_player)
             continue;
-        int player_p = (std::find(order.begin(), order.end(), player) - order.begin()) / sizeof(int);
+        int player_p = std::find(order.begin(), order.end(), player) - order.begin();
         switch(msg::type(call.data))
         {
         case msg::header::call_ron:
-            if (priority[player_p+7] == MJ_MAYBE)
-                priority[player_p+7] = MJ_TRUE;
+            if (priority[9-player_p] == MJ_MAYBE)
+                priority[9-player_p] = MJ_TRUE;
+            priority[6-player_p] = priority[3-player_p] = MJ_FALSE;
+            break;
         case msg::header::call_kong:
-            if (priority[player_p+4] == MJ_MAYBE)
-                priority[player_p+4] = MJ_TRUE;
+            if (priority[6-player_p] == MJ_MAYBE)
+                priority[6-player_p] = MJ_TRUE;
+            priority[9-player_p] = priority[3-player_p] = MJ_FALSE;
+            break;
         case msg::header::call_pong:
-            if (priority[player_p+1] == MJ_MAYBE)
-                priority[player_p+1] = MJ_TRUE;
+            if (priority[3-player_p] == MJ_MAYBE)
+                priority[3-player_p] = MJ_TRUE;
+            priority[9-player_p] = priority[6-player_p] = MJ_FALSE;
+            break;
         case msg::header::call_chow:
-            if (player_p == order[0] && priority[0] == MJ_MAYBE)
+            if (player_p == 0 && priority[0] == MJ_MAYBE)
                 priority[0] = MJ_TRUE;
+            priority[3] = priority[6] = priority[9] = MJ_FALSE;
+            break;
         case msg::header::pass_calls:
-            priority[player_p+7] = MJ_FALSE;
-            priority[player_p+4] = MJ_FALSE;
-            priority[player_p+1] = MJ_FALSE;
+            priority[9-player_p] = priority[6-player_p] = priority[3-player_p] = MJ_FALSE;
+            break;
         case msg::header::call_with_tile:
-            if (num_call_tiles[player_p] < 3)
-                call_tiles[player_p][num_call_tiles[player_p]++] = msg::data<card_type>(call.data);
+            if (call_tiles[player_p].size() < 3)
+                call_tiles[player_p].push_back(msg::data<card_type>(call.data));
+            break;
         default:
             break;
         }
@@ -669,6 +684,7 @@ game::state_type game::opponent_call()
     if (max_priority > 6)
     {
         int ron_player = order[9-max_priority];
+        game_log << ron_player << " ron" << std::endl;
         broadcast(msg::header::this_player_ron, ron_player);
         if (yakus_if_ron[ron_player][MJ_YAKU_RICHII])
         {
@@ -742,13 +758,15 @@ game::state_type game::opponent_call()
     }
     else if (max_priority > 3)
     {
-        int kong_player = order[6-max_priority];
+        int kong_player_p = 6-max_priority;
+        int kong_player = order[kong_player_p];
+        game_log << kong_player << " kong" << std::endl;
         broadcast(msg::header::this_player_kong, kong_player);
-        for (auto const &tile : call_tiles[kong_player])
+        for (auto const &tile : call_tiles[kong_player_p])
             broadcast(msg::header::tile, tile);
 
         mj_add_meld(&melds[kong_player], MJ_KONG_TRIPLE(MJ_OPEN_TRIPLE(MJ_TRIPLE(
-            cur_tile, call_tiles[kong_player][0], call_tiles[kong_player][1]))));
+            cur_tile, call_tiles[kong_player_p][0], call_tiles[kong_player_p][1]))));
         
         game_flags |= OTHER_KONG_FLAG;
         cur_player = kong_player;
@@ -760,13 +778,15 @@ game::state_type game::opponent_call()
     }
     else if (max_priority > 0)
     {
-        int pong_player = order[3-max_priority];
+        int pong_player_p = 3-max_priority;
+        int pong_player = order[pong_player_p];
+        game_log << pong_player << " pong" << std::endl;
         broadcast(msg::header::this_player_pong, pong_player);
-        for (auto const &tile : call_tiles[pong_player])
+        for (auto const &tile : call_tiles[pong_player_p])
             broadcast(msg::header::tile, tile);
         
         mj_add_meld(&melds[pong_player], MJ_OPEN_TRIPLE(MJ_TRIPLE(
-            cur_tile, call_tiles[pong_player][0], call_tiles[pong_player][1])));
+            cur_tile, call_tiles[pong_player_p][0], call_tiles[pong_player_p][1])));
         
         cur_player = pong_player;
 
@@ -778,13 +798,18 @@ game::state_type game::opponent_call()
     else
     {
         cur_player = order[0]; // chow player
-
+        game_log << cur_player << " chow ";
         broadcast(msg::header::this_player_chow, cur_player);
-        for (auto const &tile : call_tiles[cur_player])
-            broadcast(msg::header::tile, tile);
         
+        for (auto const &tile : call_tiles[0])
+        {
+            game_log << tile << " ";
+            broadcast(msg::header::tile, tile);
+        }
+        game_log << std::endl;
+
         mj_add_meld(&melds[cur_player], MJ_OPEN_TRIPLE(MJ_TRIPLE(
-            cur_tile, call_tiles[cur_player][0], call_tiles[cur_player][1])));
+            cur_tile, call_tiles[0][0], call_tiles[0][1])));
 
         std::transform(flags.begin(), flags.end(), flags.begin(), 
             [](flag_type f){ return f & ~IPPATSU_FLAG; });
@@ -910,6 +935,7 @@ void game::exhaustive_draw()
 /* Penalty */
 void game::tsumogiri()
 {
+    std::cout << "tsumogiri" << std::endl;
     if (mj_discard_tile(&hands[cur_player], cur_tile))
     {
         discards[cur_player].push_back(cur_tile);
@@ -970,7 +996,7 @@ mj_id game::calc_dora(game::card_type tile)
 void game::log_cur(char const *msg)
 {
     game_log << cur_player << " " << msg << " " << MJ_NUMBER1(cur_tile) << 
-        suit[MJ_SUIT(cur_tile)] << delim[cur_tile & 3]<< std::endl;
+        suit[MJ_SUIT(cur_tile)] << delim[cur_tile & 3] << std::endl;
 }
 
 std::unordered_map<unsigned short, game> game::games;

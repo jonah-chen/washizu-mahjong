@@ -86,6 +86,9 @@ void game::start_round()
     
     doras.reserve(10);
     doras.push_back(t);
+    std::cout << "Dora indicator: ";
+    mj_print_tile(t);
+    std::cout << '\n';
 
     cur_player = round_no;
     in_riichi = false;
@@ -133,8 +136,39 @@ void game::turn()
         discards[cur_player].push_back(cur_tile);
         if (cur_player != my_pos)
             check_calls();
+        break;
     }
-    
+    case msg::header::this_player_pong: case msg::header::this_player_chow:
+    {
+        cur_player = msg::data<int>(buf);
+        std::cout << "Player " << cur_player << " called " << 
+            (msg::type(buf)==msg::header::this_player_pong ? "PONG\n" : "CHOW\n");
+        
+        std::array<mj_tile, 3> meld_tiles {cur_tile};
+        for (int i = 1; i < 3; ++i)
+        {
+            buf = interface.recv();
+            if (msg::type(buf)!=msg::header::tile)
+            {
+                std::cerr << "You cannot call something that is not a tile.\n";
+                invalid_msg();
+            }
+            meld_tiles[i] = msg::data<mj_tile>(buf);
+            if (!mj_discard_tile(&hands[cur_player], meld_tiles[i]))
+                hands[cur_player].size--;
+        }
+        std::sort(meld_tiles.begin(), meld_tiles.end());
+
+        mj_add_meld(&melds[cur_player], MJ_OPEN_TRIPLE(MJ_TRIPLE(
+            meld_tiles[0], meld_tiles[1], meld_tiles[2])));
+        
+        if (cur_player == my_pos)
+        {
+            print_state();
+            std::cout << "1-" << hands[my_pos].size << ": Discard Tile\n";
+        }
+        break;
+    }
     default:
         break;
     }
@@ -154,9 +188,9 @@ void game::check_calls()
 {
     auto ron = mj_tenpai(hands[my_pos], melds[my_pos], nullptr);
 
-    auto pong = mj_pong_available(hands[my_pos], cur_tile);
+    auto pong = mj_pong_available(hands[my_pos], cur_tile, nullptr);
     auto kong = mj_kong_available(hands[my_pos], cur_tile);
-    auto chow = (((my_pos - cur_player) & 3) == 1) ? 
+    mj_size chow = (((my_pos - cur_player) & 3) == 1) ? 
         mj_chow_available(hands[my_pos], cur_tile, c_pairs.data()) : 0;
 
     if (ron)
@@ -168,7 +202,7 @@ void game::check_calls()
     
     for (mj_size i = 0; i < chow; ++i)
     {
-        std::cout << 'C' + i << ") Call Chow with ";
+        std::cout << static_cast<char>('c' + i) << ") Call Chow with ";
         mj_print_pair(c_pairs[i]);
         std::cout << '\n';
     }
@@ -179,6 +213,7 @@ void game::check_calls()
 void game::after_draw()
 {
     print_state();
+    std::scoped_lock l(class_write_mutex);
     if (in_riichi)
     {
         std::cout << "You are in riichi:\nT) Tsumo\n";
@@ -211,7 +246,7 @@ void game::print_state() const
         if (i == my_pos)
             std::cout << " 1  2  3  4  5  6  7  8  9 10 11 12 13 14\n";
         mj_print_hand(hands[i]);
-        if (i == my_pos)
+        if (i == my_pos && cur_tile != MJ_INVALID_TILE)
         {
             for (int p = 0; hands[my_pos].tiles[p] != cur_tile && p < hands[my_pos].size; ++p)
                 std::cout << "   ";
@@ -220,10 +255,9 @@ void game::print_state() const
 
         mj_print_meld(melds[i]);
         std::cout << '\n';
-        std::cout << "Discards:";
+        std::cout << "Discards: ";
         for (auto &t : discards[i])
         {
-            std::cout << ' ';
             mj_print_tile(t);
         }
         std::cout << "\n----------------------------------------\n";
@@ -239,12 +273,15 @@ void game::print_state() const
 
 void game::command()
 {
+    std::unique_lock ul(class_write_mutex);
     DEBUG_PRINT("You can now use commands.\n");
+    ul.unlock();
     std::string cmd;
     while (cmd != "quit")
     {
         std::cin >> cmd;
 
+        std::scoped_lock l(class_write_mutex);
         switch (cmd[0])
         {
         case 'R':
@@ -260,16 +297,54 @@ void game::command()
             DEBUG_PRINT("Tried to call Riichi\n");
             break;
         case 'P':
+        {
+            mj_pair pong_tiles;
+            if (mj_pong_available(hands[my_pos], cur_tile, &pong_tiles))
+            {
+                interface.send(msg::header::call_pong);
+                interface.send(msg::header::call_with_tile, MJ_FIRST(pong_tiles));
+                interface.send(msg::header::call_with_tile, MJ_SECOND(pong_tiles));
+                DEBUG_PRINT("Tried to call Pong\n");
+            }
+            else
+                DEBUG_PRINT("No pong available\n");
+            break;
+        }
+        case 'c'...'l':
+        {
+            int c = cmd[0] - 'c';
+            if (c >= 0)
+            {
+                interface.send(msg::header::call_chow);
+                interface.send(msg::header::call_with_tile, MJ_FIRST(c_pairs[c]));
+                interface.send(msg::header::call_with_tile, MJ_SECOND(c_pairs[c]));
+                DEBUG_PRINT("Tried to call Chow\n");
+            }
+            else
+                DEBUG_PRINT("Invalid Chow\n");
+            break;
+        }
         case 'K':
+            interface.send(msg::header::call_kong);
+            DEBUG_PRINT("Tried to call Kong\n");
+            break;
         case 'G':
-            interface.send(msg::header::tsumogiri_tile, cur_tile);
+            interface.send(msg::header::discard_tile, cur_tile);
             DEBUG_PRINT("Tried to tsumogiri\n");
             break;
         case '0' ... '9':
+        {
+            int t = std::stoi(cmd)-1;
+            if (t < 0 || t >= hands[my_pos].size)
+            {
+                std::cout << "Invalid tile\n";
+                break;
+            }
             interface.send(msg::header::discard_tile, 
-                hands[my_pos].tiles[std::stoi(cmd)-1]);
+                hands[my_pos].tiles[t]);
             DEBUG_PRINT("Tried to discard " << cmd << '\n');
             break;
+        }
         default:
             std::cout << "Invalid command. Use \"quit\" to quit.\n";
         }
