@@ -2,6 +2,7 @@
 
 #include "mahjong.h"
 #include "yaku.h"
+#include "interaction.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -149,6 +150,13 @@ static void test_some_hand()
     mj_print_yaku(yakus);
 }
 
+static void test_chow(char const *hand_str, mj_tile chow_tile, mj_size chows)
+{
+    mj_hand hand;
+    mj_parse(hand_str, &hand);
+    assert(mj_chow_available(hand, chow_tile, NULL) == chows);
+}
+
 int main(int argc, char *argv[])
 {
     mj_hand hand;
@@ -202,6 +210,14 @@ int main(int argc, char *argv[])
 
     pinfu_only();
     open_pinfu();
+
+    test_chow("12567m123456ps22wd", MJ_TILE(MJ_CHARACTER, 2, 0), 1);
+
+    test_chow("2467m1267p6s22w33d", MJ_TILE(MJ_CHARACTER, 4, 0), 2);
+
+    test_chow("5m4678p1s112234w33d", MJ_TILE(MJ_CIRCLE, 6, 0), 1);
+
+    test_chow("5m4678p1s112234w33d", MJ_TILE(MJ_CIRCLE, 4, 0), 2);
 
     return 0;
 }

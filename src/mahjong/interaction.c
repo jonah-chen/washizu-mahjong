@@ -41,7 +41,7 @@ inline void mj_add_meld(mj_meld *melds, mj_triple triple)
     melds->melds[melds->size++] = triple;
 }
 
-mj_bool mj_pong_available(mj_hand hand, mj_tile const tile)
+mj_bool mj_pong_available(mj_hand hand, mj_tile const tile, mj_pair *pong_tiles)
 {
     if (tile == MJ_INVALID_TILE)
         return MJ_FALSE;
@@ -51,6 +51,8 @@ mj_bool mj_pong_available(mj_hand hand, mj_tile const tile)
         if (MJ_ID_128(*i) == MJ_ID_128(i[1]) &&
             MJ_ID_128(*i) == MJ_ID_128(tile))
         {
+            if (pong_tiles)
+                *pong_tiles = MJ_PAIR(*i, i[1]);
             return MJ_TRUE;
         }
     }
@@ -136,7 +138,7 @@ mj_size mj_chow_available(mj_hand hand, mj_tile const tile, mj_pair *chow_tiles)
             for (j = i+1; 
                  j < hand.tiles+hand.size && 
                  MJ_SUIT(*j) == MJ_SUIT(tile) && 
-                 MJ_NUMBER(*j)>MJ_NUMBER(tile)+difference;
+                 MJ_NUMBER(*j)<=MJ_NUMBER(tile)+difference;
                  ++j)
             {
                 if (MJ_NUMBER(*j) == MJ_NUMBER(tile) + difference)

@@ -49,9 +49,11 @@ void mj_add_meld(mj_meld *melds, mj_triple triple);
  * 
  * @param hand The hand of the player calling PONG.
  * @param tile The tile that is called.
+ * @param pong_tiles The two tiles from hand that is used to form the PONG. 
+ * Can be NULL if these could be discarded.
  * @return True if the PONG call is valid, false otherwise.
  */
-mj_bool mj_pong_available(mj_hand hand, mj_tile const tile);
+mj_bool mj_pong_available(mj_hand hand, mj_tile const tile, mj_pair *pong_tiles);
 
 /**
  * @brief Determine if a KONG call (from another player) is valid on
