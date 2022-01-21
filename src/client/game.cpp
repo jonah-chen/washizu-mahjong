@@ -1,3 +1,10 @@
+#define DEBUG
+#ifdef DEBUG
+#define DEBUG_PRINT(x) std::cout << x
+#else 
+#define DEBUG_PRINT(x)
+#endif 
+
 #include "game.hpp"
 #include "mahjong/yaku.h"
 #include <sstream>
@@ -38,7 +45,8 @@ game::game()
             break;
         }
     }
-    start_round();
+
+    std::fill(scores.begin(), scores.end(), STARTING_PTS);
 
     cmd_thread = std::thread(&game::command, this);
     cmd_thread.detach();
@@ -46,12 +54,6 @@ game::game()
 
 void game::start_round()
 {
-    buf = interface.recv();
-    if (msg::type(buf)!=msg::header::new_round)
-    {
-        std::cerr << "Cannot start round.\n";
-        invalid_msg();
-    }
     prevailing_wind = msg::data<unsigned short>(buf) >> 2;
     round_no = msg::data<unsigned short>(buf) & 3;
     seat_wind = (my_pos - round_no) & 3;
@@ -84,11 +86,16 @@ void game::start_round()
     if (h != msg::header::dora_indicator)
         throw server_exception("Round started improperly.");
     
-    doras.reserve(10);
+    doras.reserve(MAX_DORAS*2);
     doras.push_back(t);
-    std::cout << "Dora indicator: ";
+    sep();
+    std::cout << "Scores:";
+    for (auto &score : scores)
+        std::cout << ' ' << score;
+    std::cout << "\nDora indicator: ";
+
     mj_print_tile(t);
-    std::cout << '\n';
+    std::cout << std::endl;
 
     cur_player = round_no;
     in_riichi = false;
@@ -120,6 +127,12 @@ void game::turn()
     buf = interface.recv();
     switch(msg::type(buf))
     {
+    case msg::header::new_round:
+        start_round();
+        break;
+    case msg::header::this_player_won:
+        payment();
+        break;
     case msg::header::this_player_drew:
         draw(msg::data<int>(buf));
         break;
@@ -169,7 +182,41 @@ void game::turn()
         }
         break;
     }
+    case msg::header::this_player_kong:
+    {
+        cur_player = msg::data<int>(buf);
+        std::cout << "Player " << cur_player << " called KONG\n";
+        buf = interface.recv();
+        std::array<mj_tile, 3> meld_tiles;
+        for (int i = 0; i < 3; ++i)
+        {
+            if (msg::type(buf)!=msg::header::tile)
+            {
+                std::cerr << "You cannot call something that is not a tile.\n";
+                invalid_msg();
+            }
+            meld_tiles[i] = msg::data<mj_tile>(buf);
+            if (!mj_discard_tile(&hands[cur_player], meld_tiles[i]))
+                hands[cur_player].size--;
+        }
+
+        mj_add_meld(&melds[cur_player], MJ_KONG_TRIPLE(MJ_TRIPLE(
+            meld_tiles[0], meld_tiles[1], meld_tiles[2])));
+
+        if (cur_player == my_pos)
+        {
+            print_state();
+            std::cout << "1-" << hands[my_pos].size << ": Discard Tile\n";
+        }
+        break;
+    }
+    case msg::header::this_player_riichi:
+        in_riichi = (cur_player == my_pos) ? true : in_riichi;
+        std::cout << "Player " << cur_player << " called RIICHI\n";
+        break;
     default:
+        std::cout << "Unknown Message from server: " << static_cast<char>(msg::type(buf)) << 
+            msg::data<unsigned short>(buf) << std::endl;
         break;
     }
 }
@@ -189,7 +236,7 @@ void game::check_calls()
     auto ron = mj_tenpai(hands[my_pos], melds[my_pos], nullptr);
 
     auto pong = mj_pong_available(hands[my_pos], cur_tile, nullptr);
-    auto kong = mj_kong_available(hands[my_pos], cur_tile);
+    auto kong = mj_kong_available(hands[my_pos], cur_tile, nullptr);
     mj_size chow = (((my_pos - cur_player) & 3) == 1) ? 
         mj_chow_available(hands[my_pos], cur_tile, c_pairs.data()) : 0;
 
@@ -264,12 +311,15 @@ void game::print_state() const
     }
 }
 
-#define DEBUG
-#ifdef DEBUG
-#define DEBUG_PRINT(x) std::cout << x
-#else 
-#define DEBUG_PRINT(x)
-#endif 
+void game::payment()
+{
+    int player = msg::data<int>(buf);
+    buf = interface.recv();
+    if (msg::type(buf)!=msg::header::this_many_points)
+        invalid_msg();
+    scores[player] += msg::data<int>(buf);
+    std::cout << "Player " << player << " won " << msg::data<int>(buf) << " points.\n";
+}
 
 void game::command()
 {
@@ -284,6 +334,10 @@ void game::command()
         std::scoped_lock l(class_write_mutex);
         switch (cmd[0])
         {
+        case 'p':
+            interface.send(msg::header::pass_calls);
+            DEBUG_PRINT("Tried to pass calls.\n");
+            break;
         case 'R':
             interface.send(msg::header::call_ron);
             DEBUG_PRINT("Tried to call Ron\n");
@@ -325,9 +379,23 @@ void game::command()
             break;
         }
         case 'K':
-            interface.send(msg::header::call_kong);
-            DEBUG_PRINT("Tried to call Kong\n");
+        {
+            mj_triple kong_tiles;
+            if (cur_player != my_pos && mj_kong_available(hands[my_pos], cur_tile, &kong_tiles))   
+            {
+                interface.send(msg::header::call_kong);
+                interface.send(msg::header::call_with_tile, MJ_FIRST(kong_tiles));
+                interface.send(msg::header::call_with_tile, MJ_SECOND(kong_tiles));
+                interface.send(msg::header::call_with_tile, MJ_THIRD(kong_tiles));
+                DEBUG_PRINT("Tried to call Kong\n");
+            }
+            else if (cur_player == my_pos)
+            {
+            }
+            else
+                DEBUG_PRINT("No kong available\n");
             break;
+        }
         case 'G':
             interface.send(msg::header::discard_tile, cur_tile);
             DEBUG_PRINT("Tried to tsumogiri\n");

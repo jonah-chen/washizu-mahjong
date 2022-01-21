@@ -59,7 +59,7 @@ mj_bool mj_pong_available(mj_hand hand, mj_tile const tile, mj_pair *pong_tiles)
     return MJ_FALSE;
 }
 
-mj_bool mj_kong_available(mj_hand hand, mj_tile const tile)
+mj_bool mj_kong_available(mj_hand hand, mj_tile const tile, mj_triple *kong_tiles)
 {
     if (tile == MJ_INVALID_TILE)
         return MJ_FALSE;
@@ -70,6 +70,8 @@ mj_bool mj_kong_available(mj_hand hand, mj_tile const tile)
             MJ_ID_128(*i) == MJ_ID_128(i[2]) &&
             MJ_ID_128(*i) == MJ_ID_128(tile))
         {
+            if (kong_tiles)
+                *kong_tiles = MJ_TRIPLE(*i, i[1], i[2]);
             return MJ_TRUE;
         }
     }

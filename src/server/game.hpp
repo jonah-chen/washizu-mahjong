@@ -29,6 +29,7 @@ class game
 public:
     static constexpr int NUM_PLAYERS            = 4;
     static constexpr int MAX_DISCARD_PER_PLAYER = 24;
+    static constexpr int MAX_DORAS              = 5;
     using protocall         = asio::ip::tcp;
     using client_type       = game_client;
     using client_ptr        = std::unique_ptr<client_type>;
@@ -50,7 +51,7 @@ public:
 public:
     static constexpr std::chrono::duration
         CONNECTION_TIMEOUT      = std::chrono::milliseconds(4000000),
-        SELF_CALL_TIMEOUT       = std::chrono::milliseconds(15000000),
+        SELF_CALL_TIMEOUT       = std::chrono::milliseconds(60000000),
         DISCARD_TIMEOUT         = std::chrono::milliseconds(70000000),
         OPPONENT_CALL_TIMEOUT   = std::chrono::milliseconds(70000000),
         TENPAI_TIMEOUT          = std::chrono::milliseconds(100000000),

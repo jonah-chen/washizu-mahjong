@@ -65,7 +65,7 @@ game::game(unsigned short id, std::ostream &server_log,
         player_id_map[players[pos]->uid] = pos;
     }
 
-    dora_tiles.reserve(10);
+    dora_tiles.reserve(2*MAX_DORAS);
     
     main_thread = std::thread(&game::play, this);
     main_thread.detach();
@@ -528,7 +528,7 @@ game::state_type game::discard()
     msg::buffer buffer = fetch_cur(timeout_time);
     auto discarded = msg::data<card_type>(buffer);
 
-    if (game_flags & KONG_FLAG && dora_tiles.size() >= 5)
+    if (game_flags & KONG_FLAG && dora_tiles.size() >= MAX_DORAS)
     {
         broadcast(msg::header::game_draw, msg::FOUR_KONGS); 
         return state_type::renchan;
@@ -611,9 +611,9 @@ game::state_type game::opponent_call()
     priority[1] = mj_pong_available(hands[order[2]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
     priority[2] = mj_pong_available(hands[order[1]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
     priority[3] = mj_pong_available(hands[order[0]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
-    priority[4] = mj_kong_available(hands[order[2]], cur_tile) ? MJ_MAYBE : MJ_FALSE;
-    priority[5] = mj_kong_available(hands[order[1]], cur_tile) ? MJ_MAYBE : MJ_FALSE;
-    priority[6] = mj_kong_available(hands[order[0]], cur_tile) ? MJ_MAYBE : MJ_FALSE;
+    priority[4] = mj_kong_available(hands[order[2]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
+    priority[5] = mj_kong_available(hands[order[1]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
+    priority[6] = mj_kong_available(hands[order[0]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
     priority[7] = fan_if_ron[order[2]] > 0 ? MJ_MAYBE : MJ_FALSE;
     priority[8] = fan_if_ron[order[1]] > 0 ? MJ_MAYBE : MJ_FALSE;
     priority[9] = fan_if_ron[order[0]] > 0 ? MJ_MAYBE : MJ_FALSE;
@@ -694,12 +694,13 @@ game::state_type game::opponent_call()
         }
         for (auto &indicator : dora_tiles)
         {
-            yakus_if_ron[ron_player][MJ_YAKU_DORA] += std::count_if(hands[ron_player].tiles, 
-            hands[ron_player].tiles+hands[ron_player].size, 
+            yakus_if_ron[ron_player][MJ_YAKU_DORA] += std::count_if(
+                hands[ron_player].tiles, hands[ron_player].tiles+hands[ron_player].size, 
             [indicator](const card_type &tile){
                 return calc_dora(indicator) == MJ_ID_128(tile);
             });
-            for (auto *i = melds[ron_player].melds; i < melds[ron_player].melds+melds[ron_player].size; ++i)
+            for (auto *i = melds[ron_player].melds; 
+                i < melds[ron_player].melds+melds[ron_player].size; ++i)
             {
                 if (MJ_IS_KONG(*i))
                 {

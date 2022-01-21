@@ -22,9 +22,12 @@ public:
     static constexpr int NUM_PLAYERS            = 4;
     static constexpr int MAX_DISCARD_PER_PLAYER = 24;
     static constexpr int MAX_CHOWS              = 16;
+    static constexpr int MAX_DORAS              = 5;
+    static constexpr int STARTING_PTS           = 30000;
     using card_type         = mj_tile;
     using score_type        = int;
-    using discards_type     = std::vector<card_type, optim<MAX_DISCARD_PER_PLAYER>::allocator<card_type>>;
+    using discards_type     = std::vector<card_type,
+        optim<MAX_DISCARD_PER_PLAYER>::allocator<card_type>>;
 
 public:
     game();
@@ -39,7 +42,7 @@ private:
     std::array<mj_meld, NUM_PLAYERS> melds {};
     std::array<score_type, NUM_PLAYERS> scores {};
     std::array<discards_type, NUM_PLAYERS> discards {};
-    std::vector<card_type, optim<10>::allocator<card_type>> doras {};
+    std::vector<card_type, optim<MAX_DORAS*2>::allocator<card_type>> doras {};
 
     int my_pos;
     msg::id_type my_uid;
@@ -64,6 +67,8 @@ private:
     void after_draw();
 
     void print_state() const;
+
+    void payment();
 
     void command();
 };

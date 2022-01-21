@@ -462,7 +462,7 @@ mj_size mj_tenpai(mj_hand hand, mj_meld o_melds, mj_id *result)
             if (MJ_SUIT(hand.tiles[idx]) != suit)
                 break;
 
-            memcpy(&tmp_hand, &hand, sizeof(mj_hand));
+            memcpy(&tmp_hand, &hand, sizeof(tmp_hand));
             tmp_hand.tiles[tmp_hand.size++] = MJ_TILE(suit, number, 0);
             mj_sort_hand(&tmp_hand);
             mj_size num_wins = mj_n_agari(tmp_hand, o_melds, triples, pairs);
@@ -515,7 +515,7 @@ mj_size mj_tenpai(mj_hand hand, mj_meld o_melds, mj_id *result)
         if (number >= 3 || MJ_SUIT(hand.tiles[idx]) != MJ_DRAGON)
             break;
 
-        memcpy(&tmp_hand, &hand, sizeof(mj_hand));
+        memcpy(&tmp_hand, &hand, sizeof(tmp_hand));
         tmp_hand.tiles[tmp_hand.size++] = MJ_TILE(MJ_DRAGON, number, 0);
         mj_sort_hand(&tmp_hand);
         mj_size num_wins = mj_n_agari(tmp_hand, o_melds, triples, pairs);

@@ -63,7 +63,7 @@ mj_bool mj_pong_available(mj_hand hand, mj_tile const tile, mj_pair *pong_tiles)
  * @param tile The tile that is called.
  * @return True if the KONG call is valid, false otherwise.
  */
-mj_bool mj_kong_available(mj_hand hand, mj_tile const tile);
+mj_bool mj_kong_available(mj_hand hand, mj_tile const tile, mj_triple *kong_tiles);
 
 /**
  * @brief Determine if a closed KONG call is valid on a specific tile.
