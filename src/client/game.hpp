@@ -33,7 +33,6 @@ public:
     game();
     void start_round();
     void turn();
-    void draw(int player);
 
 private:
     R interface {R::protocall::v4(), 10000};
@@ -63,6 +62,8 @@ private:
     void invalid_msg() const;
 
     void check_calls();
+
+    void draw();
 
     void after_draw();
 

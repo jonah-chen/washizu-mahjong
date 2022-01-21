@@ -101,8 +101,9 @@ void game::start_round()
     in_riichi = false;
 }
 
-void game::draw(int player)
+void game::draw()
 {
+    int player = msg::data<int>(buf);
     buf = interface.recv();
     if (msg::type(buf)!=msg::header::tile)
     {
@@ -134,7 +135,7 @@ void game::turn()
         payment();
         break;
     case msg::header::this_player_drew:
-        draw(msg::data<int>(buf));
+        draw();
         break;
     case msg::header::tile: case msg::header::tsumogiri_tile:
     {
@@ -184,29 +185,56 @@ void game::turn()
     }
     case msg::header::this_player_kong:
     {
-        cur_player = msg::data<int>(buf);
-        std::cout << "Player " << cur_player << " called KONG\n";
-        buf = interface.recv();
-        std::array<mj_tile, 3> meld_tiles;
-        for (int i = 0; i < 3; ++i)
+        if (cur_player == msg::data<int>(buf)) // self call kong
         {
+            std::cout << "Player " << cur_player << " called KONG\n";
+            buf = interface.recv();
             if (msg::type(buf)!=msg::header::tile)
             {
                 std::cerr << "You cannot call something that is not a tile.\n";
                 invalid_msg();
             }
-            meld_tiles[i] = msg::data<mj_tile>(buf);
-            if (!mj_discard_tile(&hands[cur_player], meld_tiles[i]))
-                hands[cur_player].size--;
+            mj_tile t = msg::data<mj_tile>(buf);
+            auto *k = mj_open_kong_available(melds[cur_player], t);
+            if (k)
+            {
+                *k = MJ_KONG_TRIPLE(*k);
+            }
+            else
+            {
+                mj_discard_tile(&hands[cur_player], t^1);
+                mj_discard_tile(&hands[cur_player], t^2);
+                mj_discard_tile(&hands[cur_player], t^3);
+                mj_add_meld(&melds[cur_player], MJ_KONG_TRIPLE(MJ_TRIPLE(
+                    t, t^1, t^2)));
+            }
         }
-
-        mj_add_meld(&melds[cur_player], MJ_KONG_TRIPLE(MJ_TRIPLE(
-            meld_tiles[0], meld_tiles[1], meld_tiles[2])));
-
-        if (cur_player == my_pos)
+        else // not self call kong
         {
-            print_state();
-            std::cout << "1-" << hands[my_pos].size << ": Discard Tile\n";
+            cur_player = msg::data<int>(buf);
+            std::cout << "Player " << cur_player << " called KONG\n";
+            buf = interface.recv();
+            std::array<mj_tile, 3> meld_tiles;
+            for (int i = 0; i < 3; ++i)
+            {
+                if (msg::type(buf)!=msg::header::tile)
+                {
+                    std::cerr << "You cannot call something that is not a tile.\n";
+                    invalid_msg();
+                }
+                meld_tiles[i] = msg::data<mj_tile>(buf);
+                if (!mj_discard_tile(&hands[cur_player], meld_tiles[i]))
+                    hands[cur_player].size--;
+            }
+
+            mj_add_meld(&melds[cur_player], MJ_KONG_TRIPLE(MJ_TRIPLE(
+                meld_tiles[0], meld_tiles[1], meld_tiles[2])));
+
+            if (cur_player == my_pos)
+            {
+                print_state();
+                std::cout << "1-" << hands[my_pos].size << ": Discard Tile\n";
+            }
         }
         break;
     }
@@ -378,7 +406,7 @@ void game::command()
                 DEBUG_PRINT("Invalid Chow\n");
             break;
         }
-        case 'K':
+        case 'K' ... 'N':
         {
             mj_triple kong_tiles;
             if (cur_player != my_pos && mj_kong_available(hands[my_pos], cur_tile, &kong_tiles))   
