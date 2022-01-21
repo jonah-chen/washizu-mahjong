@@ -800,6 +800,19 @@ game::state_type game::opponent_call()
     {
         cur_player = order[0]; // chow player
         game_log << cur_player << " chow ";
+
+        std::array<card_type, 3> chow_tiles {
+            call_tiles[0][0], call_tiles[0][1], cur_tile
+        };
+        std::sort(chow_tiles.begin(), chow_tiles.end());
+        if (MJ_NUMBER(chow_tiles[2]) - MJ_NUMBER(chow_tiles[1]) != 1 ||
+            MJ_NUMBER(chow_tiles[1]) - MJ_NUMBER(chow_tiles[0]) != 1 || 
+            MJ_SUIT(chow_tiles[0]) != MJ_SUIT(chow_tiles[1]) ||
+            MJ_SUIT(chow_tiles[0]) != MJ_SUIT(chow_tiles[2]))
+        {
+            players[cur_player]->send(msg::header::reject, msg::REJECT);
+            goto NO_CALL;
+        }
         broadcast(msg::header::this_player_chow, cur_player);
         
         for (auto const &tile : call_tiles[0])
@@ -810,7 +823,7 @@ game::state_type game::opponent_call()
         game_log << std::endl;
 
         mj_add_meld(&melds[cur_player], MJ_OPEN_TRIPLE(MJ_TRIPLE(
-            cur_tile, call_tiles[0][0], call_tiles[0][1])));
+            chow_tiles[0], chow_tiles[1], chow_tiles[2])));
 
         std::transform(flags.begin(), flags.end(), flags.begin(), 
             [](flag_type f){ return f & ~IPPATSU_FLAG; });
