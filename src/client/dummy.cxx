@@ -2,8 +2,8 @@
 #include <iostream>
 int main()
 {
-    R interface(R::protocall::v4(), 10000);
-    
+    R interface(R::protocol::v4(), 10000);
+
     // send a connection request
     msg::buffer msg = interface.recv();
     std::cout << static_cast<char>(msg::type(msg)) << " " << msg::data<unsigned short>(msg) << std::endl;
