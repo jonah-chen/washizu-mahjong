@@ -96,12 +96,12 @@ mj_bool mj_closed_kong_available(mj_hand hand, mj_tile const tile)
     return MJ_FALSE;
 }
 
-mj_triple *mj_open_kong_available(mj_meld melds, mj_tile const tile)
+mj_triple *mj_open_kong_available(mj_meld *melds, mj_tile const tile)
 {
     if (tile == MJ_INVALID_TILE)
         return NULL;
 
-    for (mj_triple *i = melds.melds; i < melds.melds + melds.size; ++i)
+    for (mj_triple *i = melds->melds; i < melds->melds + melds->size; ++i)
     {
         if (MJ_IS_SET(*i) && MJ_ID_128(*i) == MJ_ID_128(tile))
         {
@@ -154,4 +154,43 @@ mj_size mj_chow_available(mj_hand hand, mj_tile const tile, mj_pair *chow_tiles)
     }
 
     return chows;
+}
+
+mj_size mj_self_kongs(mj_hand hand, mj_meld melds, mj_tile *kongs)
+{
+    mj_size kongs_count = 0;
+
+    /* Check closed kongs */
+    for (mj_tile *i = hand.tiles; i < hand.tiles+hand.size-3; ++i)
+    {
+        if (MJ_ID_128(*i) == MJ_ID_128(i[1]) &&
+            MJ_ID_128(*i) == MJ_ID_128(i[2]) &&
+            MJ_ID_128(*i) == MJ_ID_128(i[3]))
+        {
+            if (kongs)
+                kongs[kongs_count] = *i;
+            ++kongs_count;
+            i += 3;
+        }
+    }
+
+    /* Check open kongs */
+    for (mj_triple *i = melds.melds; i < melds.melds + melds.size; ++i)
+    {
+        if (MJ_IS_SET(*i))
+        {
+            for (mj_tile *j = hand.tiles; j < hand.tiles+hand.size; ++j)
+            {
+                if (MJ_ID_128(*j) == MJ_ID_128(*i))
+                {
+                    if (kongs)
+                        kongs[kongs_count] = *i;
+                    ++kongs_count;
+                    break;
+                }
+            }
+        }
+    }
+
+    return kongs_count;
 }

@@ -82,7 +82,7 @@ mj_bool mj_closed_kong_available(mj_hand hand, mj_tile const tile);
  * @return The meld the tile should be added to to make the open KONG,
  * and NULL if the open KONG is not valid.
  */
-mj_triple *mj_open_kong_available(mj_meld melds, mj_tile const tile);
+mj_triple *mj_open_kong_available(mj_meld *melds, mj_tile const tile);
 
 /**
  * @brief Determine if a CHOW call is valid on a specific tile.
@@ -95,6 +95,17 @@ mj_triple *mj_open_kong_available(mj_meld melds, mj_tile const tile);
  * call is invalid.
  */
 mj_size mj_chow_available(mj_hand hand, mj_tile const tile, mj_pair *chow_tiles);
+
+/**
+ * @brief Find all the possible KONG calls that can be made with the current 
+ * hand and melds. 
+ * 
+ * @param hand The hand of the player.
+ * @param melds The melds of the player.
+ * @param kongs The list of one of the tiles of the possible KONG calls.
+ * @return The number of possible KONG calls.
+ */
+mj_size mj_self_kongs(mj_hand hand, mj_meld melds, mj_tile *kongs);
 
 #ifdef __cplusplus
 }
