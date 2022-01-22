@@ -1,8 +1,6 @@
 #ifndef MJ_MAHJONG_H
 #define MJ_MAHJONG_H
 
-#define ABS(x) ((x) < 0 ? -(x) : (x))
-
 #ifndef _DEBUG_LEVEL
 #define _DEBUG_LEVEL 1
 #endif

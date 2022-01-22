@@ -19,7 +19,7 @@ struct optim
     template <typename Type>
     struct allocator : public std::allocator<Type>
     {
-        Type *allocate(size_t n) 
+        Type *allocate(size_t n)
         {
             if (n > MaxSize)
                 return new Type[n];

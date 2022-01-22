@@ -16,11 +16,16 @@
  * @brief This enum class is used to represent the game state.
  */
 enum class turn_state {
-    game_over, start_round, /* Game handling states */
-    draw, self_call, discard, opponent_call, /* Normal Gameplay */
-    after_kong, /* Special Gameplay */
-    next, renchan, exhaustive_draw, /* End of round */
-    tsumogiri, chombo, timeout /* Bad Stuff happened */
+    /* Game handling states */
+    game_over, start_round,
+     /* Normal Gameplay */
+    draw, self_call, discard, opponent_call,
+    /* Special Gameplay */
+    after_kong,
+    /* End of round */
+    next, renchan, exhaustive_draw,
+    /* Bad Stuff happened */
+    tsumogiri, chombo
 };
 
 
@@ -30,7 +35,7 @@ public:
     static constexpr int NUM_PLAYERS            = 4;
     static constexpr int MAX_DISCARD_PER_PLAYER = 24;
     static constexpr int MAX_DORAS              = 5;
-    using protocall         = asio::ip::tcp;
+    using protocol          = asio::ip::tcp;
     using client_type       = game_client;
     using client_ptr        = std::unique_ptr<client_type>;
     using players_allocator = optim<NUM_PLAYERS>::allocator<client_ptr>;
@@ -57,8 +62,8 @@ public:
         TENPAI_TIMEOUT          = std::chrono::milliseconds(100000000),
         END_TURN_DELAY          = std::chrono::milliseconds(2000),
         NEW_ROUND_DELAY         = std::chrono::milliseconds(12600);
-    
-    static constexpr flag_type 
+
+    static constexpr flag_type
         RIICHI_FLAG             = 0x0001,
         DOUBLE_RIICHI_FLAG      = 0x0002,
         IPPATSU_FLAG            = 0x0004;
@@ -114,68 +119,76 @@ public:
 
     /**
      * Play the game in a loop based on the state. Should be run on the main
-     * thread. The function will return when the game is over. 
+     * thread. The function will return when the game is over.
      */
     void play();
 
     /**
      * @brief Calculate the dora based on the indicator
-     * 
+     *
      * @param indicator The dora indicator.
      * @return The ID (128) of the dora
      */
     static mj_id calc_dora(card_type indicator);
 
 private:
-    std::condition_variable timeout_cv;
-    std::mutex timeout_m;
-
-    players_type players;
-    spectators_type spectators;
+    /* Message handling */
+    players_type                            players;
+    spectators_type                         spectators;
+    std::condition_variable                 timeout_cv;
+    std::mutex                              timeout_m;
+    msg::queue<message_type>                messages { timeout_cv };
+    std::map<client_type::id_type, int>     player_id_map;
 
     /* Player state */
-    std::array<mj_hand, NUM_PLAYERS> hands {};
-    std::array<mj_meld, NUM_PLAYERS> melds {};
-    std::array<score_type, NUM_PLAYERS> scores {};
-    std::array<discards_type, NUM_PLAYERS> discards {};
-    std::array<flag_type, NUM_PLAYERS> flags;
+    std::array<mj_hand, NUM_PLAYERS>        hands   {};
+    std::array<mj_meld, NUM_PLAYERS>        melds   {};
+    std::array<score_type, NUM_PLAYERS>     scores  {};
+    std::array<discards_type, NUM_PLAYERS>  discards{};
+    std::array<flag_type, NUM_PLAYERS>      flags;
 
-    /* Game state */
-    msg::queue<message_type> messages { timeout_cv };
-    unsigned short game_id;
-    deck_type wall;
-    std::ostream &server_log;
-    std::ofstream game_log;
-    flag_type game_flags;
-    std::vector<card_type, doras_allocator> dora_tiles; 
-    int prevailing_wind { MJ_EAST };
-    int dealer { 0 };
-    int cur_player { 0 };
-    state_type cur_state { state_type::start_round };
-    card_type cur_tile { MJ_INVALID_TILE };
-    score_type deposit {};
-    score_type bonus_score {};
-    unsigned short round {};
-    std::map<client_type::id_type, int> player_id_map;
+    /* Game level states */
+    unsigned short  game_id;
+    std::ostream &  server_log;
+    std::ofstream   game_log;
+
+    /* Round level states */
+    deck_type                               wall;
+    std::vector<card_type, doras_allocator> dora_tiles;
+    int                                     prevailing_wind { MJ_EAST };
+    int                                     dealer          { 0 };
+    flag_type                               game_flags;
+
+    /* Turn level states */
+    int             cur_player  { 0 };
+    state_type      cur_state   { state_type::start_round };
+    card_type       cur_tile    { MJ_INVALID_TILE };
+    score_type      deposit     {};
+    score_type      bonus_score {};
+    unsigned short  round       {};
 
     /* Aux Objects */
     std::thread main_thread;
-    std::mutex spectator_mutex;
-    std::mutex rng_mutex;
+    std::mutex  spectator_mutex;
+    std::mutex  rng_mutex;
 
 private:
     /* handle different states */
     void start_round();
+
     /* Normal play states */
     state_type self_call();
     state_type discard();
     state_type opponent_call();
+
     /* Special play states */
     void after_kong();
+
     /* End game state */
     void next();
     void renchan();
     void exhaustive_draw();
+
     /* Player error states */
     void tsumogiri();
     void chombo_penalty();
@@ -191,10 +204,10 @@ private:
 private:
     /**
      * @brief Tries to fetch the first message that is sent by the current player.
-     * 
+     *
      * @tparam TimepointType chrono is stupid.
      * @param until The time to wait until before timing out.
-     * @return The first message that is sent by the current player, or timeout 
+     * @return The first message that is sent by the current player, or timeout
      * TIMEOUT if timed out.
      */
     template <typename TimepointType>

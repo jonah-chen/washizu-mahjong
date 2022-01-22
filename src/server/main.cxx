@@ -29,7 +29,7 @@ void server_debug_terminal()
     exit(0);
 }
 
-void reject_socket(game::protocall::socket &socket)
+void reject_socket(game::protocol::socket &socket)
 {
     asio::write(socket, asio::buffer(msg::buffer_data(
         msg::header::reject, msg::REJECT), msg::BUFFER_SIZE));
@@ -51,19 +51,19 @@ int main(int argc, char **argv)
 
     std::thread debug_thread(server_debug_terminal);
     debug_thread.detach();
-    
+
     std::filesystem::create_directory(GAME_LOG_DIR);
     server_log << time() << "SERVER: starting\n";
     while (true)
     {
         std::stringstream ss;
         auto id = game_id();
-        ss << GAME_LOG_DIR << "/" << std::setw(4) << std::setfill('0') << 
+        ss << GAME_LOG_DIR << "/" << std::setw(4) << std::setfill('0') <<
             id << GAME_LOG_SUFFIX;
         game::games.try_emplace(id, id, server_log, ss.str(), true);
 
         server_log << time() << "SERVER: new game " << id << " started" << std::endl;
     }
-    
+
     return 0;
 }
