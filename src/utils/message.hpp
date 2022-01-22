@@ -9,13 +9,13 @@
 #ifndef MJ_UTILS_MESSAGE_HPP
 #define MJ_UTILS_MESSAGE_HPP
 
-#define MJ_SERVER_DEFAULT_PORT 10000
-
 #include <array>
 #include <deque>
 #include <mutex>
 #include <condition_variable>
 #include <iostream>
+
+constexpr unsigned short MJ_SERVER_DEFAULT_PORT = 10000;
 
 namespace msg
 {
