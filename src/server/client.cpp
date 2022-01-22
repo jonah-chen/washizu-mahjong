@@ -1,21 +1,26 @@
 #include "client.hpp"
+#include <iostream>
 
-game_client::game_client(queue_type &shared_q, unsigned short &game_id, bool &as_player) 
+game_client::game_client(queue_type &shared_q, unsigned short &game_id, bool &as_player)
     : uid(next_uid()), q(shared_q)
 {
     acceptor.accept(socket);
     std::string ip = socket.remote_endpoint().address().to_string();
 
-#ifdef RELEASE
+#ifndef ALLOW_MULTIPLE_CONNECTIONS_PER_IP
     if (connected_ips.find(ip) != connected_ips.end())
     {
         reject();
-        ~game_client();
         return;
     }
+    else
+    {
+        connected_ips.insert(ip);
+    }
 #endif
+
     msg::buffer conn_req, conn_id;
-    try 
+    try
     {
         socket.send(asio::buffer(msg::buffer_data(msg::header::your_id, uid), msg::BUFFER_SIZE));
         conn_req = recv(CONNECTION_TIMEOUT);
@@ -24,19 +29,19 @@ game_client::game_client(queue_type &shared_q, unsigned short &game_id, bool &as
     catch (const std::exception& e)
     {
         std::cerr << "game_client::game_client raised " << e.what() << std::endl;
-        socket.close();
+        close();
         return;
     }
 
     if (msg::type(conn_id) != msg::header::my_id)
     {
-        reject();
+        close();
         return;
     }
 
     msg::header header = msg::type(conn_req);
     unsigned short id = msg::data<unsigned short>(conn_id);
-    
+
     if (header == msg::header::join_as_player)
     {
         game_id = msg::data<unsigned short>(conn_req);
@@ -50,7 +55,7 @@ game_client::game_client(queue_type &shared_q, unsigned short &game_id, bool &as
     }
     else
     {
-        reject();
+        close();
         return;
     }
 
@@ -67,21 +72,42 @@ game_client::game_client(game_client &&other)
         socket  (std::move(other.socket))
 {}
 
-game_client::~game_client()
+game_client::~game_client() noexcept
 {
-    if (socket.is_open())
-        socket.close();
+    close();
 }
 
-game_client::id_type game_client::next_uid()
+game_client::id_type game_client::next_uid() noexcept
 {
     static game_client::id_type counter = 8000;
     return counter++;
 }
 
-std::string game_client::ip() const
+std::optional<std::string> game_client::ip() const noexcept
 {
-    return socket.remote_endpoint().address().to_string();
+    try
+    {
+        if (socket.is_open())
+            return socket.remote_endpoint().address().to_string();
+        return std::nullopt;
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "game_client::ip tried to raise " << e.what()
+            << " but is actively supressed" << std::endl;
+        return std::nullopt;
+    }
+}
+
+void game_client::close() noexcept
+{
+#ifndef ALLOW_MULTIPLE_CONNECTIONS_PER_IP
+    auto ip_addr = ip();
+    if (ip_addr)
+        connected_ips.erase(*ip_addr);
+#endif
+    if (socket.is_open())
+        socket.close();
 }
 
 void game_client::listening()
@@ -96,15 +122,15 @@ void game_client::listening()
         catch(const std::exception& e)
         {
             std::cerr << "Listening thread raised: " << e.what() << std::endl;
-            socket.close();
+            close();
         }
 
         if (msg::type(buf) == msg::header::ping)
             ping_recv.notify_one();
         else
         {
-            std::cout << "Received from " << uid << ": " << (char)msg::type(buf) << 
-            msg::data<unsigned short>(buf) << std::endl;
+            std::cout << "Received from " << uid << ": " << (char)msg::type(buf) <<
+            ' ' << msg::data<unsigned short>(buf) << std::endl;
             q.push_back({uid, buf});
         }
     }
@@ -119,13 +145,13 @@ void game_client::pinging()
         std::unique_lock ul(ping_m);
         if (ping_recv.wait_for(ul, PING_TIMEOUT) == std::cv_status::timeout)
         {
-            std::cerr << "PING NOT REPLIED TO " << uid << "\n";
-            socket.close();
+            std::cerr << "Ping not replied by " << uid << " closing connection...\n";
+            close();
         }
     }
 }
 
-void game_client::reject()
+void game_client::reject() noexcept
 {
     try
     {
@@ -140,6 +166,8 @@ void game_client::reject()
 
 asio::io_context game_client::context;
 
-game_client::protocall::endpoint game_client::server_endpoint(game_client::protocall::v4(), 10000);
+game_client::protocol::endpoint game_client::server_endpoint(game_client::protocol::v4(), 10000);
 
-game_client::protocall::acceptor game_client::acceptor(game_client::context, game_client::server_endpoint);
+game_client::protocol::acceptor game_client::acceptor(game_client::context, game_client::server_endpoint);
+
+std::unordered_set<std::string> game_client::connected_ips;
