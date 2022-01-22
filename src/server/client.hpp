@@ -20,6 +20,9 @@ struct identified_msg
  * @brief The game_client class handles the sending and receiving of messages
  * for the server.
  *
+ * @note Make sure online_mode or offline_mode is called before creating a
+ * game_client.
+ *
  * @details This class is implemented with the asio framework and the protocol
  * in the utils/message.hpp header.
  */
@@ -38,6 +41,7 @@ public:
         PING_TIMEOUT        = std::chrono::milliseconds(300),
         CONNECTION_TIMEOUT  = std::chrono::milliseconds(400);
 
+    static bool                             online_mode;
     static asio::io_context                 context;
     static protocol::endpoint               server_endpoint;
     static protocol::acceptor               acceptor;

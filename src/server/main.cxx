@@ -1,3 +1,4 @@
+#define ALLOW_MULTIPLE_CONNECTIONS_PER_IP
 #include "game.hpp"
 #include <fstream>
 #include <iostream>
@@ -20,10 +21,33 @@ auto time()
 void server_debug_terminal()
 {
     std::string s;
-    while (s != "/exit")
+    while (s != "__exit")
     {
         std::cin >> s;
-        std::cout << time() << "DEBUG: " << s << "\n";
+        if (s == "count")
+            std::cout << time() << "Running games: " << game::games.size() << std::endl;
+        else if (s == "ip" && game_client::online_mode)
+        {
+            std::cin >> s;
+            if (s == "list")
+            {
+                std::cout << time() << game_client::connected_ips.size() <<
+                    " connected IPs:\n";
+                for (auto const &ip : game_client::connected_ips)
+                    std::cout << ip << std::endl;
+            }
+            else if (s == "remove")
+            {
+                std::cin >> s;
+                if (game_client::connected_ips.erase(s))
+                    std::cout << time() << "Removed IP: " << s << std::endl;
+            }
+            else if (s == "count")
+                std::cout << "Connected IPs: " <<
+                    game_client::connected_ips.size() << std::endl;
+        }
+        else
+            std::cout << time() << "DEBUG: " << s << " not a command yet\n";
     }
     std::cout << time() << "SERVER: exiting due to terminal input" << std::endl;
     exit(0);
@@ -47,13 +71,31 @@ unsigned short game_id()
 
 int main(int argc, char **argv)
 {
+    if (argc == 2 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0))
+    {
+        std::cout << "Usage: " << argv[0] << "--online" << std::endl;
+        return 1;
+    }
+    offline_mode();
     std::ostream &server_log = std::cout;
 
     std::thread debug_thread(server_debug_terminal);
     debug_thread.detach();
 
     std::filesystem::create_directory(GAME_LOG_DIR);
-    server_log << time() << "SERVER: starting\n";
+    server_log << time() << "SERVER: starting on port " << MJ_SERVER_DEFAULT_PORT;
+
+    if (argc >= 2 && strcmp(argv[1], "--online") == 0)
+    {
+        online_mode();
+        server_log << " (online mode)" << std::endl;
+    }
+    else
+    {
+        offline_mode();
+        server_log << " (offline mode)" << std::endl;
+    }
+
     while (true)
     {
         std::stringstream ss;

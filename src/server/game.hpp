@@ -13,6 +13,19 @@
 #include <map>
 
 /**
+ * @brief Set the server to online mode, meaning it will verify there is at most
+ * one client connected per IP.
+ */
+void inline online_mode() { game_client::online_mode = true; }
+
+/**
+ * @brief Set the server to offline mode, meaning it will not verify there is
+ * at most one client connected per IP. This is useful for testing, but should
+ * not be used in production as it is easy to cheat.
+ */
+void inline offline_mode() { game_client::online_mode = false; }
+
+/**
  * @brief This enum class is used to represent the game state.
  */
 enum class turn_state {

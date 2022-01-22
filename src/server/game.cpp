@@ -455,9 +455,11 @@ game::state_type game::self_call()
             else
             {
                 players[cur_player]->send(msg::header::reject, msg::REJECT);
+#ifndef NDEBUG
                 server_log << "Player with UID=" << std::to_string(players[cur_player]->uid)
                     << " @" << players[cur_player]->ip().value_or("unknown ip")
                     << " called an invalid kong." << std::endl;
+#endif
                 break; /* from switch, try again */
             }
 
@@ -543,10 +545,12 @@ game::state_type game::discard()
         else
         {
             players[cur_player]->send(msg::header::reject, msg::REJECT);
+#ifndef NDEBUG
             server_log << "Player with UID=" <<
                 std::to_string(players[cur_player]->uid) <<
                 " @" << players[cur_player]->ip().value_or("unknown ip") <<
                 " discarded an invalid tile." << std::endl;
+#endif
         }
     }
     return state_type::tsumogiri;

@@ -140,7 +140,15 @@ private:
         while(socket.is_open())
         {
             msg::buffer cur_msg;
-            socket.receive(asio::buffer(cur_msg, msg::BUFFER_SIZE));
+            try
+            {
+                socket.receive(asio::buffer(cur_msg, msg::BUFFER_SIZE));
+            }
+            catch (std::system_error &e)
+            {
+                std::cerr << "Connection to the server closed\n" << std::endl;
+                exit(EXIT_SUCCESS);
+            }
             if (msg::type(cur_msg) == msg::header::ping)
                 socket.send(asio::buffer(cur_msg, msg::BUFFER_SIZE));
             else

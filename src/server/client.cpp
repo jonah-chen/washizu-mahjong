@@ -7,17 +7,18 @@ game_client::game_client(queue_type &shared_q, unsigned short &game_id, bool &as
     acceptor.accept(socket);
     std::string ip = socket.remote_endpoint().address().to_string();
 
-#ifndef ALLOW_MULTIPLE_CONNECTIONS_PER_IP
-    if (connected_ips.find(ip) != connected_ips.end())
+    if (online_mode)
     {
-        reject();
-        return;
+        if (connected_ips.find(ip) != connected_ips.end())
+        {
+            reject();
+            return;
+        }
+        else
+        {
+            connected_ips.insert(ip);
+        }
     }
-    else
-    {
-        connected_ips.insert(ip);
-    }
-#endif
 
     msg::buffer conn_req, conn_id;
     try
@@ -101,11 +102,12 @@ std::optional<std::string> game_client::ip() const noexcept
 
 void game_client::close() noexcept
 {
-#ifndef ALLOW_MULTIPLE_CONNECTIONS_PER_IP
-    auto ip_addr = ip();
-    if (ip_addr)
-        connected_ips.erase(*ip_addr);
-#endif
+    if (online_mode)
+    {
+        auto ip_addr = ip();
+        if (ip_addr)
+            connected_ips.erase(*ip_addr);
+    }
     if (socket.is_open())
         socket.close();
 }
@@ -129,8 +131,10 @@ void game_client::listening()
             ping_recv.notify_one();
         else
         {
+#ifndef NDEBUG
             std::cout << "Received from " << uid << ": " << (char)msg::type(buf) <<
             ' ' << msg::data<unsigned short>(buf) << std::endl;
+#endif
             q.push_back({uid, buf});
         }
     }
@@ -163,11 +167,14 @@ void game_client::reject() noexcept
         socket.close();
 }
 
+bool game_client::online_mode;
 
 asio::io_context game_client::context;
 
-game_client::protocol::endpoint game_client::server_endpoint(game_client::protocol::v4(), 10000);
+game_client::protocol::endpoint game_client::server_endpoint(
+    game_client::protocol::v4(), MJ_SERVER_DEFAULT_PORT);
 
-game_client::protocol::acceptor game_client::acceptor(game_client::context, game_client::server_endpoint);
+game_client::protocol::acceptor game_client::acceptor(
+    game_client::context, game_client::server_endpoint);
 
 std::unordered_set<std::string> game_client::connected_ips;
