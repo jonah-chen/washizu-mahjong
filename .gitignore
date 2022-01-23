@@ -41,8 +41,14 @@
 /.vscode/
 Makefile
 
-/win_build/CMakeFiles/
-/win_build/cmake-build-debug/
-/win_build/Makefile
-/win_build/CMakeCache.txt
-/win_build/cmake_install.cmake
+/win-build/CMakeFiles/
+/win-build/cmake-build-debug/
+/win-build/Makefile
+/win-build/CMakeCache.txt
+/win-build/cmake_install.cmake
+
+/linux-build/CMakeFiles/
+/linux-build/cmake-build-debug/
+/linux-build/Makefile
+/linux-build/CMakeCache.txt
+/linux-build/cmake_install.cmake

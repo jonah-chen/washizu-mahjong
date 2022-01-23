@@ -68,11 +68,11 @@ public:
 
 public:
     static constexpr std::chrono::duration
-        CONNECTION_TIMEOUT      = std::chrono::milliseconds(4000000),
-        SELF_CALL_TIMEOUT       = std::chrono::milliseconds(60000000),
-        DISCARD_TIMEOUT         = std::chrono::milliseconds(70000000),
-        OPPONENT_CALL_TIMEOUT   = std::chrono::milliseconds(70000000),
-        TENPAI_TIMEOUT          = std::chrono::milliseconds(100000000),
+        CONNECTION_TIMEOUT      = std::chrono::milliseconds(400),
+        SELF_CALL_TIMEOUT       = std::chrono::milliseconds(60000),
+        DISCARD_TIMEOUT         = std::chrono::milliseconds(60000),
+        OPPONENT_CALL_TIMEOUT   = std::chrono::milliseconds(60000),
+        TENPAI_TIMEOUT          = std::chrono::milliseconds(60000),
         END_TURN_DELAY          = std::chrono::milliseconds(2000),
         NEW_ROUND_DELAY         = std::chrono::milliseconds(12600);
 
