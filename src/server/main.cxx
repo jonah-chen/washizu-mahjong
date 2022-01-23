@@ -1,4 +1,3 @@
-#define ALLOW_MULTIPLE_CONNECTIONS_PER_IP
 #include "game.hpp"
 #include <fstream>
 #include <iostream>
