@@ -3,6 +3,8 @@
 
 int main(int argc, char *argv[])
 {
+
+#ifdef NDEBUG
     unsigned int port = MJ_SERVER_DEFAULT_PORT;
     if (argc == 2)
     {
@@ -46,4 +48,10 @@ int main(int argc, char *argv[])
             std::cout << "Invalid IP address. Please try again.\n> ";
         }
     }
+#else
+    game g(std::cin, R::protocol::v4(), MJ_SERVER_DEFAULT_PORT);
+    while (g.turn()) {}
+    return 0;
+#endif
+
 }
