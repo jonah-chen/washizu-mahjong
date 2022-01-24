@@ -1,4 +1,5 @@
 #include "game.hpp"
+#include "extra.hpp"
 #include "mahjong/interaction.h"
 #include "mahjong/yaku.h"
 #include <algorithm>
@@ -42,7 +43,12 @@ game::game(unsigned short id, std::ostream &server_log,
         if (as_player)
         {
             if (g_id == msg::NEW_PLAYER)
+            {
+                time(server_log) << "New connection from " << 
+                    new_player->ip().value_or("unknown ip") << " assigned " <<
+                    new_player->uid << std::endl;
                 players.emplace_back(std::move(new_player));
+            }
             else if (games.find(g_id) != games.end())
                 games.at(g_id).reconnect(std::move(new_player));
             else
@@ -96,7 +102,7 @@ void game::reconnect(client_ptr &&client)
     if (it != players.end())
     {
         *it = std::move(client);
-        server_log << "Player " << uid << " reconnected." << std::endl;
+        time(server_log) << "Player " << uid << " reconnected." << std::endl;
     }
 }
 
@@ -456,9 +462,10 @@ game::state_type game::self_call()
             {
                 players[cur_player]->send(msg::header::reject, msg::REJECT);
 #ifndef NDEBUG
-                server_log << "Player with UID=" << std::to_string(players[cur_player]->uid)
-                    << " @" << players[cur_player]->ip().value_or("unknown ip")
-                    << " called an invalid kong." << std::endl;
+                time(server_log) << "Player with UID=" << 
+                    std::to_string(players[cur_player]->uid) << " @" << 
+                    players[cur_player]->ip().value_or("unknown ip") << 
+                    " called an invalid kong." << std::endl;
 #endif
                 break; /* from switch, try again */
             }
@@ -546,7 +553,7 @@ game::state_type game::discard()
         {
             players[cur_player]->send(msg::header::reject, msg::REJECT);
 #ifndef NDEBUG
-            server_log << "Player with UID=" <<
+            time(server_log) << "Player with UID=" <<
                 std::to_string(players[cur_player]->uid) <<
                 " @" << players[cur_player]->ip().value_or("unknown ip") <<
                 " discarded an invalid tile." << std::endl;
