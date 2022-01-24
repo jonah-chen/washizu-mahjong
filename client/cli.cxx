@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
 
         port = std::stoi(argv[1]);
     }
-        
+
 
     std::cout << "Please enter the server's IP (or localhost):\n> ";
 
