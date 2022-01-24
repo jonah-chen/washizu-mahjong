@@ -4,29 +4,46 @@
 int main(int argc, char *argv[])
 {
     unsigned int port = MJ_SERVER_DEFAULT_PORT;
-    switch(argc)
+    if (argc == 2)
     {
-        case 3:
-            port = std::stoi(argv[2]);
-        case 2:
+        if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)
         {
-            if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)
+            std::cout << "Usage: " << argv[0] << " [port (optional)]" << std::endl;
+            return 0;
+        }
+
+        port = std::stoi(argv[1]);
+    }
+        
+
+    std::cout << "Please enter the server's IP (or localhost):\n> ";
+
+    while (true)
+    {
+        try
+        {
+            std::string ip_str;
+            std::cin >> ip_str;
+
+            if (ip_str == "localhost")
             {
-                std::cout << "Usage: " << argv[0] << " <host> [port]" << std::endl;
-                return 1;
+                game g(std::cin, R::protocol::v4(), port);
+                while (g.turn()) {};
+                return 0;
             }
-            game g(std::cin, asio::ip::make_address(argv[1]), port);
+
+            game g(std::cin, asio::ip::make_address(ip_str), port);
             while (g.turn()) {}
             return 0;
         }
-        case 1:
+        catch (server_exception const &e)
         {
-            game g(std::cin, R::protocol::v4(), port);
-            while (g.turn()) {};
-            return 0;
+            std::cerr << "Server Error: " << e.what() << std::endl;
+            return server_exception::ERROR_CODE;
         }
-        default:
-            std::cout << "Usage: " << argv[0] << " <host> [port]" << std::endl;
-            return 1;
+        catch(std::exception const &e)
+        {
+            std::cout << "Invalid IP address. Please try again.\n> ";
+        }
     }
 }

@@ -42,6 +42,7 @@
 class server_exception : public std::exception
 {
 public:
+    static constexpr int ERROR_CODE = 7;
     explicit server_exception(std::string const &msg) : msg(msg) {}
     const char *what() const noexcept override { return msg.c_str(); }
 private:
