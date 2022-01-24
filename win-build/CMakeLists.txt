@@ -28,7 +28,7 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_WIN32_WINNT=0x0A00 -static -O3")
-set (src_dir ../src)
+set (src_dir ../)
 
 include_directories(/usr/x86_64-w64-mingw32/include/)
 
@@ -39,7 +39,6 @@ add_library(Mahjong STATIC ${src_dir}/mahjong/mahjong.c
 
 add_executable(Server ${src_dir}/server/main.cxx ${src_dir}/server/deck.cpp
 ${src_dir}/server/game.cpp ${src_dir}/server/client.cpp ${src_dir}/server/extra.cpp)
-add_executable(DummyClient ${src_dir}/client/dummy.cxx)
 add_executable(CLIClient ${src_dir}/client/cli.cxx)
 
 target_link_libraries(Server PRIVATE Mahjong pthread ws2_32)

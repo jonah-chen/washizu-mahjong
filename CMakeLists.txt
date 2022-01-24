@@ -9,7 +9,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_BUILD_TYPE Debug)
 
-set(src_dir src)
+set(src_dir .)
 
 include_directories(${src_dir})
 
@@ -18,7 +18,7 @@ add_library(Mahjong STATIC ${src_dir}/mahjong/mahjong.c
 
 add_executable(TestMahjong ${src_dir}/mahjong/test.c)
 add_executable(Server ${src_dir}/server/main.cxx ${src_dir}/server/deck.cpp
-    ${src_dir}/server/game.cpp ${src_dir}/server/client.cpp 
+    ${src_dir}/server/game.cpp ${src_dir}/server/client.cpp
     ${src_dir}/server/extra.cpp)
 add_executable(DummyClient ${src_dir}/client/dummy.cxx)
 add_executable(CLIClient ${src_dir}/client/cli.cxx)
