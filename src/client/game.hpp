@@ -177,6 +177,9 @@ public:
 #endif
 
             break;
+        case msg::header::dora_indicator:
+            doras.push_back(msg::data<mj_tile>(buf));
+            break;
         default:
             std::cerr << "Unknown Message from server: " <<
                 static_cast<char>(msg::type(buf)) <<
