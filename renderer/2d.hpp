@@ -32,7 +32,8 @@ public:
         OPENGL_PROFILE      = GLFW_OPENGL_CORE_PROFILE,
         WINDOW_WIDTH        = 1024,
         WINDOW_HEIGHT       = 1024,
-        TILES_TEX_SLOT      = 0;
+        TILES_TEX_SLOT      = 0,
+        DISCARDS_PER_LINE   = 6;
 
     static constexpr float
         PLAYFIELD_LEFT      = 0.0f,
@@ -45,6 +46,8 @@ public:
         TILE_HEIGHT_INTERN  = 3.91f,
         HAND_OFFSET         = 16.0f;
 
+    static constexpr glm::vec2 DISCARD_PILE_OFFSET = {28.0f, 24.0f};
+
 public:
     ~renderer2d() noexcept;
 
@@ -56,12 +59,21 @@ public:
     static void submit(mj_hand const &hand, int relative_pos);
 
     template<typename Allocator>
-    static void submit(std::vector<mj_tile, Allocator> const &discards, int relative_pos);
+    static void submit(std::vector<mj_tile, Allocator> const &discards, int relative_pos, int riichi_turn=0x7fff)
+    {
+        auto &instance = get_instance();
+        for (int i = 0; i < std::min(18ul, discards.size()); ++i)
+            instance.submit(discards[i], static_cast<float>(i%DISCARDS_PER_LINE),
+                static_cast<float>(i/DISCARDS_PER_LINE), relative_pos, i > riichi_turn);
+
+        for (int i = 18; i < discards.size(); ++i)
+            instance.submit(discards[i], relative_pos, i-12, 2, i > riichi_turn);
+    }
 
     void submit(mj_meld meld, int relative_pos);
 
     static void flush();
-    void clear();
+    static void clear();
 
     static inline GLFWwindow *window_ptr() { return get_instance().window; }
 
@@ -105,7 +117,9 @@ private:
 
 private:
     void flush_impl();
+    void clear_impl();
     void submit(mj_tile tile, int orientation, float x, float y);
+    void submit(mj_tile tile, float x, float y, int relative_pos, bool after_riichi);
 };
 
 #endif

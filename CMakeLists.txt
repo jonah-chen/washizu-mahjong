@@ -17,7 +17,7 @@ add_library(Mahjong STATIC ${src_dir}/mahjong/mahjong.c
     ${src_dir}/mahjong/yaku.c ${src_dir}/mahjong/interaction.c)
 add_library(Renderer STATIC ${src_dir}/renderer/camera.cpp
     ${src_dir}/renderer/mesh.cpp ${src_dir}/renderer/shader.cpp
-    ${src_dir}/renderer/texture.cpp)
+    ${src_dir}/renderer/texture.cpp ${src_dir}/input/input.cpp)
 
 target_link_libraries(Renderer PRIVATE GL GLEW glfw png)
 

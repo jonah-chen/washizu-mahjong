@@ -14,6 +14,16 @@ int main(int argc, char *argv[])
     renderer2d::submit(h2, MJ_SOUTH);
     renderer2d::submit(h3, MJ_WEST);
     renderer2d::submit(h4, MJ_NORTH);
+    std::vector<mj_tile> tiles;
+    for (int i = 0; i < h1.size; ++i)
+        tiles.push_back(h1.tiles[i]);
+    renderer2d::submit(tiles, MJ_NORTH);
+    tiles.pop_back();
+    renderer2d::submit(tiles, MJ_WEST);
+    tiles.pop_back();
+    renderer2d::submit(tiles, MJ_EAST);
+    tiles.pop_back();
+    renderer2d::submit(tiles, MJ_SOUTH);
     glClearColor(0.1f, 0.3f, 0.f, 1.f);
 
     glfwSetMouseButtonCallback(renderer2d::window_ptr(), input::on_mouse_button);

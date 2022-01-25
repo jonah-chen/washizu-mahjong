@@ -7,6 +7,9 @@
 #include <GL/glew.h>
 #include <CImg.h>
 
+#include <chrono>
+#include <iostream>
+
 /**
  * @brief exception that is thrown when there is some problem preventing the
  * texture image from loading.
@@ -32,6 +35,8 @@ texture::texture(const char *path)
     data_type *tex = new data_type[img.width() * img.height() * BPP];
     data_type *tex_ptr = tex;
 
+    auto start = std::chrono::high_resolution_clock::now();
+
     for (int y{}; y < img.height(); ++y)
     {
         for (int x{}; x < img.width(); ++x)
@@ -42,6 +47,12 @@ texture::texture(const char *path)
             }
         }
     }
+
+    // time
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout << "Texture loading for " << path << " took "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+              << "ms" << std::endl;
 
     glGenTextures(1, &tex_id);
     glBindTexture(GL_TEXTURE_2D, tex_id);

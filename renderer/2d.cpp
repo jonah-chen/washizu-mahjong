@@ -1,6 +1,7 @@
 #include "2d.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <stdexcept>
 
 #ifndef NDEBUG
 
@@ -38,10 +39,7 @@ renderer2d &renderer2d::get_instance()
 GLFWwindow *renderer2d::init_window()
 {
     if (!glfwInit())
-    {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
         return nullptr;
-    }
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, OPENGL_VERSION);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, OPENGL_SUBVERSION);
@@ -53,19 +51,13 @@ GLFWwindow *renderer2d::init_window()
     GLFWwindow *new_window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Washizu Mahjong", nullptr, nullptr);
 
     if (!new_window)
-    {
-        std::cerr << "Failed to create GLFW window" << std::endl;
         return nullptr;
-    }
 
     glfwMakeContextCurrent(new_window);
     glfwSwapInterval(1);
 
     if (glewInit() != GLEW_OK)
-    {
-        std::cerr << "Failed to initialize GLEW" << std::endl;
         return nullptr;
-    }
 
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
@@ -89,7 +81,7 @@ renderer2d::renderer2d() : window(init_window())
 
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, MAX_QUADS * sizeof(vertex2d), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, MAX_QUADS * sizeof(quad2d), nullptr, GL_DYNAMIC_DRAW);
 
     glGenBuffers(1, &ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
@@ -159,12 +151,6 @@ void renderer2d::submit(mj_hand const &hand, int relative_pos)
             x_base + i*x_offset, y_base + i*y_offset);
 }
 
-template<typename Allocator>
-void renderer2d::submit(std::vector<mj_tile, Allocator> const &discards, int relative_pos)
-{
-
-}
-
 void renderer2d::submit(mj_tile tile, int orientation, float x, float y)
 {
     quad2d q;
@@ -228,6 +214,57 @@ void renderer2d::submit(mj_tile tile, int orientation, float x, float y)
     num_quads++;
 }
 
+void renderer2d::submit(mj_tile tile, float x, float y, int relative_pos, bool after_riichi)
+{
+    switch (relative_pos)
+    {
+    case MJ_EAST:
+    {
+        float const x_base = PLAYFIELD_LEFT + DISCARD_PILE_OFFSET.x;
+        float const y_base = PLAYFIELD_BOTTOM + DISCARD_PILE_OFFSET.y;
+
+        if (after_riichi)
+            submit(tile, relative_pos, x_base + (x-1) * TILE_WIDTH + TILE_HEIGHT, y_base - y * TILE_HEIGHT);
+        else
+            submit(tile, relative_pos, x_base + x * TILE_WIDTH, y_base - y * TILE_HEIGHT);
+        return;
+    }
+    case MJ_SOUTH:
+    {
+        float const x_base = PLAYFIELD_RIGHT - DISCARD_PILE_OFFSET.y;
+        float const y_base = PLAYFIELD_BOTTOM + DISCARD_PILE_OFFSET.x;
+        if (after_riichi)
+            submit(tile, relative_pos, x_base + y * TILE_HEIGHT, y_base + (x-1) * TILE_WIDTH + TILE_HEIGHT);
+        else
+            submit(tile, relative_pos, x_base + y * TILE_HEIGHT, y_base + x * TILE_WIDTH);
+        return;
+    }
+    case MJ_WEST:
+    {
+        float const x_base = PLAYFIELD_RIGHT - DISCARD_PILE_OFFSET.x;
+        float const y_base = PLAYFIELD_TOP - DISCARD_PILE_OFFSET.y;
+
+        if (after_riichi)
+            submit(tile, relative_pos, x_base - (x-1) * TILE_WIDTH - TILE_HEIGHT, y_base + y * TILE_HEIGHT);
+        else
+            submit(tile, relative_pos, x_base - x * TILE_WIDTH, y_base + y * TILE_HEIGHT);
+        return;
+    }
+    case MJ_NORTH:
+    {
+        float const x_base = PLAYFIELD_LEFT + DISCARD_PILE_OFFSET.y;
+        float const y_base = PLAYFIELD_TOP - DISCARD_PILE_OFFSET.x;
+
+        if (after_riichi)
+            submit(tile, relative_pos, x_base - y * TILE_HEIGHT, y_base - (x-1) * TILE_WIDTH - TILE_HEIGHT);
+        else
+            submit(tile, relative_pos, x_base - y * TILE_HEIGHT, y_base - x * TILE_WIDTH);
+        return;
+    }
+    default: throw 0;
+    }
+}
+
 void renderer2d::flush()
 {
     get_instance().flush_impl();
@@ -243,6 +280,11 @@ void renderer2d::flush_impl()
 }
 
 void renderer2d::clear()
+{
+    get_instance().clear_impl();
+}
+
+void renderer2d::clear_impl()
 {
     buffer_ptr = buffer;
     num_quads = 0;

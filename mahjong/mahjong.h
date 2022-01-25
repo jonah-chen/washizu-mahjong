@@ -57,32 +57,35 @@ typedef struct mj_meld {
 } mj_meld;
 
 /* Constants */
-#define MJ_TRUE (mj_bool)2
-#define MJ_MAYBE (mj_bool)1
-#define MJ_FALSE (mj_bool)0
+#define MJ_TRUE             (mj_bool)2
+#define MJ_MAYBE            (mj_bool)1
+#define MJ_FALSE            (mj_bool)0
 
-#define MJ_CHARACTER 0
-#define MJ_CIRCLE 1
-#define MJ_BAMBOO 2
-#define MJ_WIND 3
-#define MJ_DRAGON 4
+#define MJ_CHARACTER        0
+#define MJ_CIRCLE           1
+#define MJ_BAMBOO           2
+#define MJ_WIND             3
+#define MJ_DRAGON           4
 
-#define MJ_GREEN 0
-#define MJ_RED 1
-#define MJ_WHITE 2
-#define MJ_EAST 0
-#define MJ_SOUTH 1
-#define MJ_WEST 2
-#define MJ_NORTH 3
+#define MJ_GREEN            0
+#define MJ_RED              1
+#define MJ_WHITE            2
+#define MJ_EAST             0
+#define MJ_SOUTH            1
+#define MJ_WEST             2
+#define MJ_NORTH            3
 
-#define MJ_UNIQUE_TILES 34
-#define MJ_DECK_SIZE 136
-#define MJ_DEAD_WALL_SIZE 14
+#define MJ_UNIQUE_TILES     34
+#define MJ_DECK_SIZE        136
+#define MJ_DEAD_WALL_SIZE   14
 
-#define MJ_BONUS_SCORE 100
-#define MJ_RIICHI_DEPOSIT 1000
+#define MJ_BONUS_SCORE      100
+#define MJ_RIICHI_DEPOSIT   1000
 
-#define MJ_INVALID_TILE (mj_tile)(-1)
+#define MJ_INVALID_TILE     (mj_tile)(-1)
+
+/* Player change */
+#define MJ_NEXT_PLAYER(p)   (((p) + 1) & 3)
 
 /* Construction Macros */
 #define MJ_TILE(suit,number,sub) \
@@ -120,13 +123,13 @@ typedef struct mj_meld {
 (((x)>>6) & 0b111)
 
 #define MJ_FIRST(x) \
-(mj_tile)((x) & 0b111111111)
+(mj_tile)((x) & 0x1ff)
 
 #define MJ_SECOND(x) \
-(mj_tile)(((x)>>9) & 0b111111111)
+(mj_tile)(((x)>>9) & 0x1ff)
 
 #define MJ_THIRD(x) \
-(mj_tile)(((x)>>18)& 0b111111111)
+(mj_tile)(((x)>>18)& 0x1ff)
 
 /* Checks */
 #define MJ_IS_OPAQUE(x) \

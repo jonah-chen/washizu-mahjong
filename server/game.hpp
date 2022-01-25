@@ -64,7 +64,7 @@ public:
     using state_type        = turn_state;
     using clock_type        = typename client_type::clock_type;
     using game_id_type      = unsigned short;
-    using doras_allocator   = optim<10>::allocator<card_type>;
+    using doras_allocator   = optim<MAX_DORAS*2>::allocator<card_type>;
 
 public:
     static constexpr std::chrono::duration
