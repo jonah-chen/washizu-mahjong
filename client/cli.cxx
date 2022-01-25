@@ -29,12 +29,12 @@ int main(int argc, char *argv[])
 
             if (ip_str == "localhost")
             {
-                game g(std::cin, R::protocol::v4(), port);
+                game g([](std::string&str){std::cin >> str;}, R::protocol::v4(), port);
                 while (g.turn()) {};
                 return 0;
             }
 
-            game g(std::cin, asio::ip::make_address(ip_str), port);
+            game g([](std::string&str){std::cin >> str;}, asio::ip::make_address(ip_str), port);
             while (g.turn()) {}
             return 0;
         }
@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
         }
     }
 #else
-    game g(std::cin, R::protocol::v4(), MJ_SERVER_DEFAULT_PORT);
+    game g([](std::string&str){std::cin >> str;}, R::protocol::v4(), MJ_SERVER_DEFAULT_PORT);
     while (g.turn()) {}
     return 0;
 #endif

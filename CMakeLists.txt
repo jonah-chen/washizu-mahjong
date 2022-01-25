@@ -26,8 +26,10 @@ add_executable(Server ${src_dir}/server/main.cxx ${src_dir}/server/deck.cpp
     ${src_dir}/server/game.cpp ${src_dir}/server/client.cpp
     ${src_dir}/server/extra.cpp)
 add_executable(DummyClient ${src_dir}/client/dummy.cxx)
-add_executable(CLIClient ${src_dir}/client/cli.cxx)
-add_executable(2DClient ${src_dir}/client/2d.cxx ${src_dir}/renderer/2d.cpp)
+add_executable(CLIClient ${src_dir}/client/cli.cxx
+${src_dir}/client/game_core.cpp ${src_dir}/client/game_cli.cpp)
+add_executable(2DClient ${src_dir}/client/2d.cxx ${src_dir}/renderer/2d.cpp
+${src_dir}/client/game_core.cpp ${src_dir}/client/game_2d.cpp)
 
 target_link_libraries(TestMahjong PRIVATE Mahjong)
 target_link_libraries(Server PRIVATE Mahjong pthread)

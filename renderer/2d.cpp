@@ -106,11 +106,11 @@ renderer2d::renderer2d() : window(init_window())
 
 renderer2d::~renderer2d() noexcept
 {
-    delete[] buffer;
-    glDeleteVertexArrays(1, &vao);
-    glDeleteBuffers(1, &vbo);
-    glDeleteBuffers(1, &ebo);
-    glfwTerminate();
+    // delete[] buffer;
+    // glDeleteBuffers(1, &vbo);
+    // glDeleteBuffers(1, &ebo);
+    // glDeleteVertexArrays(1, &vao);
+    // glfwTerminate();
 }
 
 void renderer2d::submit(mj_hand const &hand, int relative_pos)
@@ -156,17 +156,19 @@ void renderer2d::submit(mj_tile tile, int orientation, float x, float y)
     quad2d q;
 
     if (tile == MJ_INVALID_TILE)
-        return;
+    {
+        tile = MJ_TILE(MJ_DRAGON, MJ_WHITE, 0);
+    } // temporarily
 
     if (MJ_IS_OPAQUE(tile) == MJ_TRUE)
     {
-        q.tl.v = q.tr.v = 0.0f;
-        q.bl.v = q.br.v = 0.5f;
+        q.tl.v = q.tr.v = 0.5f;
+        q.bl.v = q.br.v = 1.0f;
     }
     else
     {
-        q.tl.v = q.tr.v = 0.5f;
-        q.bl.v = q.br.v = 1.0f;
+        q.tl.v = q.tr.v = 0.0f;
+        q.bl.v = q.br.v = 0.5f;
     }
 
     float idx34;
@@ -272,10 +274,8 @@ void renderer2d::flush()
 
 void renderer2d::flush_impl()
 {
-    if (buffer_ptr == buffer)
-        return;
-
-    glBufferSubData(GL_ARRAY_BUFFER, 0, num_quads * sizeof(quad2d), buffer);
+    if (buffer_ptr != buffer)
+        glBufferSubData(GL_ARRAY_BUFFER, 0, num_quads * sizeof(quad2d), buffer);
     glDrawElements(GL_TRIANGLES, num_quads * 6, GL_UNSIGNED_INT, nullptr);
 }
 

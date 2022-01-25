@@ -15,7 +15,7 @@ void on_key(GLFWwindow *window, int key, int scancode, int action, int mods);
 
 void inline trigger_render() { glfwPostEmptyEvent(); }
 
-class istream : private std::istream
+class istream
 {
 public:
     friend void on_mouse_button(GLFWwindow *window, int button, int action, int mods);
@@ -24,7 +24,7 @@ public:
     istream &operator=(const istream &) = delete;
 
     static istream &get_instance();
-    istream &operator>>(std::string &str);
+    static void get(std::string &buffer);
 
     static void buffer(const std::string &str);
 
@@ -33,6 +33,8 @@ private:
     static std::string buf;
     static std::condition_variable cv;
     static std::mutex m;
+
+    void get_impl(std::string &str);
 };
 
 }

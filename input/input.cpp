@@ -18,7 +18,7 @@ void input_2d::on_mouse_button(GLFWwindow *window, int button, int action, int m
     x = x * X_SCALE - X_OFFSET;
     if (y < renderer2d::TILE_HEIGHT)
     {
-        int tile = static_cast<int>(x / renderer2d::TILE_WIDTH);
+        int tile = static_cast<int>(x / renderer2d::TILE_WIDTH) + 1;
         std::cout << "Clicked on tile at " << tile << std::endl;
         istream::buffer(std::to_string(tile));
     }
@@ -45,14 +45,16 @@ input_2d::istream &input_2d::istream::get_instance()
     return instance;
 }
 
-
-input_2d::istream &input_2d::istream::operator>>(std::string &str)
+void input_2d::istream::get(std::string &str)
+{
+    get_instance().get_impl(str);
+}
+void input_2d::istream::get_impl(std::string &str)
 {
     std::unique_lock lk(m);
     cv.wait(lk, [this] { return !buf.empty(); });
     str = std::move(buf);
     buf = "";
-    return *this;
 }
 
 void input_2d::istream::buffer(const std::string &str)

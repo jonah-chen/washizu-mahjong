@@ -113,7 +113,7 @@ private:
 "}\n"
     };
 
-    texture tex {"assets/texture/tiles.png"};
+    texture tex {"/home/john/CLionProjects/washizu-mahjong/assets/texture/tiles.png"};
 
 private:
     void flush_impl();
