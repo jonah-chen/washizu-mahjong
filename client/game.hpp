@@ -22,8 +22,25 @@
 #error MJ_CLIENT_MODE_ {CLI,2D,3D,RTX} must be defined
 #endif
 
-#define DEBUG
-#ifdef DEBUG
+#if defined(MJ_CLIENT_MODE_2D) ||\
+    defined(MJ_CLIENT_MODE_3D) ||\
+    defined(MJ_CLIENT_MODE_RTX)
+
+#ifndef MJ_RENDERER
+#error A renderer must be included before a 2D, 3D, or RTX game
+#endif
+
+#include "input/input.hpp"
+
+#ifdef MJ_CLIENT_MODE_2D
+namespace input = input_2d;
+#else
+namespace input = input_3d;
+#endif
+
+#endif
+
+#ifndef NDEBUG
 #define DEBUG_PRINT(x) std::cout << x
 #else
 #define DEBUG_PRINT(x)
@@ -64,8 +81,8 @@ public:
     static constexpr int STARTING_PTS           = 30000;
     using card_type         = mj_tile;
     using score_type        = int;
-    using discards_type     = std::vector<card_type,
-        optim<MAX_DISCARD_PER_PLAYER>::allocator<card_type>>;
+    using discards_allocator= optim<MAX_DISCARD_PER_PLAYER>::allocator<card_type>;
+    using discards_type     = std::vector<card_type, discards_allocator>;
 
 public:
     template <typename IPType>

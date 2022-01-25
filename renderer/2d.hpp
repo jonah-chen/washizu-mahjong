@@ -1,5 +1,6 @@
 #ifndef MJ_RENDERER_2D_HPP
 #define MJ_RENDERER_2D_HPP
+#define MJ_RENDERER
 
 #define GLEW_STATIC
 
@@ -24,22 +25,51 @@ class renderer2d
 {
 public:
     static constexpr std::size_t MAX_QUADS = 256;
+
+    static constexpr int
+        OPENGL_VERSION      = 4,
+        OPENGL_SUBVERSION   = 5,
+        OPENGL_PROFILE      = GLFW_OPENGL_CORE_PROFILE,
+        WINDOW_WIDTH        = 1024,
+        WINDOW_HEIGHT       = 1024,
+        TILES_TEX_SLOT      = 0;
+
+    static constexpr float
+        PLAYFIELD_LEFT      = 0.0f,
+        PLAYFIELD_RIGHT     = 75.0f,
+        PLAYFIELD_BOTTOM    = 0.0f,
+        PLAYFIELD_TOP       = 75.0f,
+        TILE_WIDTH          = 3.0f,
+        TILE_HEIGHT         = 4.0f,
+        TILE_WIDTH_INTERN   = 2.77f,
+        TILE_HEIGHT_INTERN  = 3.91f,
+        HAND_OFFSET         = 16.0f;
+
 public:
-    renderer2d();
     ~renderer2d() noexcept;
 
     renderer2d(renderer2d const &) = delete;
-    renderer2d(renderer2d &&) = delete;
     renderer2d &operator=(renderer2d const &) = delete;
-    renderer2d &operator=(renderer2d &&) = delete;
 
-    void submit(mj_tile tile, int relative_pos);
+    static renderer2d &get_instance();
+
+    static void submit(mj_hand const &hand, int relative_pos);
+
+    template<typename Allocator>
+    static void submit(std::vector<mj_tile, Allocator> const &discards, int relative_pos);
+
     void submit(mj_meld meld, int relative_pos);
 
-    void flush();
+    static void flush();
     void clear();
 
+    static inline GLFWwindow *window_ptr() { return get_instance().window; }
+
 private:
+    GLFWwindow *init_window();
+    renderer2d();
+    GLFWwindow *window;
+
     unsigned int vao, vbo, ebo;
 
     quad2d *buffer, *buffer_ptr;
@@ -72,6 +102,10 @@ private:
     };
 
     texture tex {"assets/texture/tiles.png"};
+
+private:
+    void flush_impl();
+    void submit(mj_tile tile, int orientation, float x, float y);
 };
 
 #endif

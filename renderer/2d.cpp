@@ -1,7 +1,6 @@
 #include "2d.hpp"
 
-#define GLEW_STATIC
-#include <GL/glew.h>
+#include <glm/gtc/matrix_transform.hpp>
 
 #ifndef NDEBUG
 
@@ -21,15 +20,69 @@ debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
         std::cerr << "Low severity: " << id << ": " << message << std::endl;
         break;
     case GL_DEBUG_SEVERITY_NOTIFICATION:
-        std::cerr << "Notification: " << id << ": " << message << std::endl;
+        //std::cerr << "Notification: " << id << ": " << message << std::endl;
+        break;
+    default:
         break;
     }
 }
 
 #endif
 
-renderer2d::renderer2d()
+renderer2d &renderer2d::get_instance()
 {
+    static renderer2d instance;
+    return instance;
+}
+
+GLFWwindow *renderer2d::init_window()
+{
+    if (!glfwInit())
+    {
+        std::cerr << "Failed to initialize GLFW" << std::endl;
+        return nullptr;
+    }
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, OPENGL_VERSION);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, OPENGL_SUBVERSION);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, OPENGL_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+    glfwWindowHint(GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+
+    GLFWwindow *new_window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Washizu Mahjong", nullptr, nullptr);
+
+    if (!new_window)
+    {
+        std::cerr << "Failed to create GLFW window" << std::endl;
+        return nullptr;
+    }
+
+    glfwMakeContextCurrent(new_window);
+    glfwSwapInterval(1);
+
+    if (glewInit() != GLEW_OK)
+    {
+        std::cerr << "Failed to initialize GLEW" << std::endl;
+        return nullptr;
+    }
+
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_BLEND);
+
+#ifndef NDEBUG
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(debugCallback, nullptr);
+#endif
+
+    return new_window;
+}
+
+renderer2d::renderer2d() : window(init_window())
+{
+    if (!window)
+        throw std::runtime_error("Failed to initialize renderer2d");
+
     buffer = buffer_ptr = new quad2d[MAX_QUADS];
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
@@ -56,7 +109,7 @@ renderer2d::renderer2d()
     tex.bind(0);
     program.bind();
     program.fill_tex_slots("tex_array");
-    program.uniform("projection", glm::mat4(1.0f));
+    program.uniform("projection", glm::ortho(PLAYFIELD_LEFT, PLAYFIELD_RIGHT, PLAYFIELD_BOTTOM, PLAYFIELD_TOP));
 }
 
 renderer2d::~renderer2d() noexcept
@@ -65,11 +118,59 @@ renderer2d::~renderer2d() noexcept
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
     glDeleteBuffers(1, &ebo);
+    glfwTerminate();
 }
 
-void renderer2d::submit(mj_tile tile, int relative_pos)
+void renderer2d::submit(mj_hand const &hand, int relative_pos)
+{
+    float x_base, y_base, x_offset, y_offset;
+    switch (relative_pos)
+    {
+    case MJ_EAST:
+        x_base = PLAYFIELD_LEFT + HAND_OFFSET;
+        y_base = PLAYFIELD_BOTTOM;
+        x_offset = TILE_WIDTH;
+        y_offset = 0.f;
+        break;
+    case MJ_SOUTH:
+        x_base = PLAYFIELD_RIGHT;
+        y_base = PLAYFIELD_BOTTOM + HAND_OFFSET;
+        x_offset = 0.f;
+        y_offset = TILE_WIDTH;
+        break;
+    case MJ_WEST:
+        x_base = PLAYFIELD_RIGHT - HAND_OFFSET;
+        y_base = PLAYFIELD_TOP;
+        x_offset = -TILE_WIDTH;
+        y_offset = 0.f;
+        break;
+    case MJ_NORTH:
+        x_base = PLAYFIELD_LEFT;
+        y_base = PLAYFIELD_TOP - HAND_OFFSET;
+        x_offset = 0.f;
+        y_offset = -TILE_WIDTH;
+        break;
+    default: throw 0;
+    }
+
+    auto &instance = get_instance();
+    for (int i = 0; i < hand.size; ++i)
+        instance.submit(hand.tiles[i], relative_pos,
+            x_base + i*x_offset, y_base + i*y_offset);
+}
+
+template<typename Allocator>
+void renderer2d::submit(std::vector<mj_tile, Allocator> const &discards, int relative_pos)
+{
+
+}
+
+void renderer2d::submit(mj_tile tile, int orientation, float x, float y)
 {
     quad2d q;
+
+    if (tile == MJ_INVALID_TILE)
+        return;
 
     if (MJ_IS_OPAQUE(tile) == MJ_TRUE)
     {
@@ -91,16 +192,36 @@ void renderer2d::submit(mj_tile tile, int relative_pos)
     q.bl.u = q.tl.u = idx34 / MJ_UNIQUE_TILES;
     q.br.u = q.tr.u = (idx34 + 1) / MJ_UNIQUE_TILES;
 
-    q.bl.x = -0.5f;
-    q.bl.y = -0.5f;
-    q.tl.x = -0.5f;
-    q.tl.y = 0.5f;
-    q.tr.x = 0.5f;
-    q.tr.y = 0.5f;
-    q.br.x = 0.5f;
-    q.br.y = -0.5f;
+    switch (orientation)
+    {
+    case MJ_EAST:
+        q.bl.y = q.br.y = y;
+        q.bl.x = q.tl.x = x;
+        q.tl.y = q.tr.y = y + TILE_HEIGHT_INTERN;
+        q.tr.x = q.br.x = x + TILE_WIDTH_INTERN;
+        break;
+    case MJ_SOUTH:
+        q.bl.position = { x, y };
+        q.br.position = { x, y + TILE_WIDTH_INTERN };
+        q.tl.position = { x - TILE_HEIGHT_INTERN, y };
+        q.tr.position = { x - TILE_HEIGHT_INTERN, y + TILE_WIDTH_INTERN };
+        break;
+    case MJ_WEST:
+        q.bl.position = { x, y };
+        q.br.position = { x - TILE_WIDTH_INTERN, y };
+        q.tl.position = { x, y - TILE_HEIGHT_INTERN };
+        q.tr.position = { x - TILE_WIDTH_INTERN, y - TILE_HEIGHT_INTERN };
+        break;
+    case MJ_NORTH:
+        q.bl.position = { x, y };
+        q.br.position = { x, y - TILE_WIDTH_INTERN };
+        q.tl.position = { x + TILE_HEIGHT_INTERN, y };
+        q.tr.position = { x + TILE_HEIGHT_INTERN, y - TILE_WIDTH_INTERN };
+        break;
+    default: throw 0;
+    }
 
-    q.tr.tex_index = q.br.tex_index = q.tl.tex_index = q.bl.tex_index = 0;
+    q.tr.tex_index = q.br.tex_index = q.tl.tex_index = q.bl.tex_index = TILES_TEX_SLOT;
 
     *buffer_ptr = q;
     buffer_ptr++;
@@ -108,6 +229,11 @@ void renderer2d::submit(mj_tile tile, int relative_pos)
 }
 
 void renderer2d::flush()
+{
+    get_instance().flush_impl();
+}
+
+void renderer2d::flush_impl()
 {
     if (buffer_ptr == buffer)
         return;

@@ -1,66 +1,30 @@
 #define MJ_CLIENT_MODE_2D
-#include "game.hpp"
-
 #include "renderer/2d.hpp"
-
-static GLFWwindow *init();
+#include "game.hpp"
 
 int main(int argc, char *argv[])
 {
-    auto *window = init();
-    renderer2d r;
-    r.submit(MJ_TILE(MJ_WIND, MJ_EAST, 0), 0);
+    mj_hand h1, h2, h3, h4;
 
-    while (!glfwWindowShouldClose(window))
+    mj_parse("123444m44p55sw2d", &h1);
+    mj_parse("123444m44p55sw2d", &h2);
+    mj_parse("144m44p55s234w23d", &h3);
+    mj_parse("144m44p55s234w23d", &h4);
+    renderer2d::submit(h1, MJ_EAST);
+    renderer2d::submit(h2, MJ_SOUTH);
+    renderer2d::submit(h3, MJ_WEST);
+    renderer2d::submit(h4, MJ_NORTH);
+    glClearColor(0.1f, 0.3f, 0.f, 1.f);
+
+    glfwSetMouseButtonCallback(renderer2d::window_ptr(), input::on_mouse_button);
+    while (!glfwWindowShouldClose(renderer2d::window_ptr()))
     {
         glClear(GL_COLOR_BUFFER_BIT);
 
-        r.flush();
+        renderer2d::flush();
 
-        glfwSwapBuffers(window);
-        glfwPollEvents();
+        glfwSwapBuffers(renderer2d::window_ptr());
+        glfwWaitEvents();
     }
     return 0;
-}
-
-static GLFWwindow *init()
-{
-    if (!glfwInit())
-    {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
-        return nullptr;
-    }
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-    glfwWindowHint(GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-
-    GLFWwindow *window = glfwCreateWindow(1024, 768, "MJ", nullptr, nullptr);
-    if (!window)
-    {
-        std::cerr << "Failed to create GLFW window" << std::endl;
-        glfwTerminate();
-        return nullptr;
-    }
-
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1);
-
-    if (glewInit() != GLEW_OK)
-    {
-        std::cerr << "Failed to initialize GLEW" << std::endl;
-        glfwTerminate();
-        return nullptr;
-    }
-
-#ifndef NDEBUG
-    glEnable(GL_DEBUG_OUTPUT);
-    glDebugMessageCallback(debugCallback, nullptr);
-#endif
-
-
-    return window;
 }

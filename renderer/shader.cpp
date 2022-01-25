@@ -25,7 +25,7 @@ void shader::from_src(char const *vertex_src, char const *fragment_src)
     glLinkProgram(program_id);
     glValidateProgram(program_id);
 
-    glDeleteShader(vertex_shader);void fill_tex_slots(char const *name, unsigned int num_slots=32);
+    glDeleteShader(vertex_shader);
     glDeleteShader(fragment_shader);
 }
 
