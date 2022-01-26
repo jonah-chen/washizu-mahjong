@@ -43,9 +43,11 @@ void game::draw()
 void game::discard()
 {
     cur_tile = msg::data<mj_tile>(buf);
-
     mj_discard_tile(&hands[cur_player], cur_tile);
-    discards[cur_player].push_back(cur_tile);
+    auto tmp_tile = cur_tile;
+    if (msg::type(buf)==msg::header::tsumogiri_tile)
+        tmp_tile |= renderer2d::TSUMOGIRI_FLAG;
+    discards[cur_player].push_back(tmp_tile);
     if (cur_player != my_pos)
         check_calls();
 

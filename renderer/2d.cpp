@@ -91,12 +91,15 @@ renderer2d::renderer2d() : window(init_window())
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex2d),
         (const void*)offsetof(vertex2d, position));
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex2d),
-        (const void*)offsetof(vertex2d, tex_coord));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(vertex2d),
+        (const void*)offsetof(vertex2d, tint));
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(vertex2d),
-        (const void*)offsetof(vertex2d, tex_index));
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex2d),
+        (const void*)offsetof(vertex2d, tex_coord));
     glEnableVertexAttribArray(2);
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(vertex2d),
+        (const void*)offsetof(vertex2d, tex_index));
+    glEnableVertexAttribArray(3);
 
     tex.bind(0);
     program.bind();
@@ -263,9 +266,11 @@ void renderer2d::submit(mj_meld const &melds, int relative_pos)
     }
 }
 
-void renderer2d::submit(mj_tile tile, int orientation, glm::vec2 pos)
+void renderer2d::submit(mj_tile tile, int orientation, glm::vec2 pos, glm::vec4 tint)
 {
     quad2d q;
+
+    q.tl.tint = q.br.tint = q.tr.tint = q.bl.tint = tint;
 
     if (tile == MJ_INVALID_TILE)
     {
@@ -380,8 +385,10 @@ void renderer2d::submit(mj_tile tile, glm::vec2 pos, int relative_pos, bool afte
     }
     default: throw 0;
     }
-
-    submit(tile, relative_pos, base);
+    if (tile & TSUMOGIRI_FLAG)
+        submit(tile, relative_pos, base, TSUMOGIRI_TINT);
+    else
+        submit(tile, relative_pos, base);
 }
 
 void renderer2d::flush()

@@ -48,6 +48,10 @@ public:
 
     static constexpr glm::vec2 DISCARD_PILE_OFFSET = {28.0f, 24.0f};
 
+    static constexpr mj_tile TSUMOGIRI_FLAG = (1 << 14);
+
+    static constexpr glm::vec4 TSUMOGIRI_TINT = {0.9f, 1.0f, 1.0f, 0.7f};
+
 public:
     ~renderer2d() noexcept;
 
@@ -63,8 +67,14 @@ public:
     {
         auto &instance = get_instance();
         for (int i = 0; i < std::min(18ul, discards.size()); ++i)
+        {
+            if (discards[i] & TSUMOGIRI_FLAG)
             instance.submit(discards[i], {i%DISCARDS_PER_LINE, i/DISCARDS_PER_LINE},
                 relative_pos, i > riichi_turn);
+            else
+            instance.submit(discards[i], {i%DISCARDS_PER_LINE, i/DISCARDS_PER_LINE},
+                relative_pos, i > riichi_turn);
+        }
 
         for (int i = 18; i < discards.size(); ++i)
             instance.submit(discards[i], {i-12, 2}, relative_pos, i > riichi_turn);
@@ -93,23 +103,27 @@ private:
     shader program {
 "#version 450 core\n"
 "layout (location = 0) in vec2 position;\n"
-"layout (location = 1) in vec2 tex_coord;\n"
-"layout (location = 2) in float tex_idx;\n"
+"layout (location = 1) in vec4 tint;\n"
+"layout (location = 2) in vec2 tex_coord;\n"
+"layout (location = 3) in float tex_idx;\n"
 "out vec2 tex_coord_out;\n"
 "out float tex_idx_out;\n"
+"out vec4 tint_out;\n"
 "uniform mat4 projection;\n"
 "void main() {\n"
 "    tex_coord_out = tex_coord;\n"
 "    tex_idx_out = tex_idx;\n"
+"    tint_out = tint;\n"
 "    gl_Position = projection * vec4(position, 0.0, 1.0);\n"
 "}\n",
 "#version 450 core\n"
 "in vec2 tex_coord_out;\n"
 "in float tex_idx_out;\n"
+"in vec4 tint_out;\n"
 "uniform sampler2D tex_array[8];\n"
 "out vec4 color;\n"
 "void main() {\n"
-"    color = texture(tex_array[int(tex_idx_out)], tex_coord_out);\n"
+"    color = texture(tex_array[int(tex_idx_out)], tex_coord_out) * tint_out;\n"
 "}\n"
     };
 
@@ -118,7 +132,7 @@ private:
 private:
     void flush_impl();
     void clear_impl();
-    void submit(mj_tile tile, int orientation, glm::vec2 pos);
+    void submit(mj_tile tile, int orientation, glm::vec2 pos, glm::vec4 tint=glm::vec4(1.0f));
     void submit(mj_tile tile, glm::vec2 pos, int relative_pos, bool after_riichi);
 };
 

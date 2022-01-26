@@ -19,6 +19,14 @@ struct vertex2d
     };
     union
     {
+        glm::vec4 tint;
+        struct
+        {
+            float r, g, b, a;
+        };
+    };
+    union
+    {
         glm::vec2 tex_coord;
         struct
         {
