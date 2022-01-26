@@ -73,7 +73,7 @@ GLFWwindow *renderer2d::init_window()
 renderer2d::renderer2d() : window(init_window())
 {
     if (!window)
-        throw std::runtime_error("Failed to initialize renderer2d");
+        throw std::runtime_error("Failed to initialize renderer2d window.");
 
     buffer = buffer_ptr = new quad2d[MAX_QUADS];
     glGenVertexArrays(1, &vao);
@@ -106,41 +106,33 @@ renderer2d::renderer2d() : window(init_window())
 
 renderer2d::~renderer2d() noexcept
 {
-    // delete[] buffer;
-    // glDeleteBuffers(1, &vbo);
-    // glDeleteBuffers(1, &ebo);
-    // glDeleteVertexArrays(1, &vao);
-    // glfwTerminate();
+    delete[] buffer;
+    glDeleteBuffers(1, &vbo);
+    glDeleteBuffers(1, &ebo);
+    glDeleteVertexArrays(1, &vao);
+    glfwTerminate();
 }
 
 void renderer2d::submit(mj_hand const &hand, int relative_pos)
 {
-    float x_base, y_base, x_offset, y_offset;
+    glm::vec2 base, offset;
     switch (relative_pos)
     {
     case MJ_EAST:
-        x_base = PLAYFIELD_LEFT + HAND_OFFSET;
-        y_base = PLAYFIELD_BOTTOM;
-        x_offset = TILE_WIDTH;
-        y_offset = 0.f;
+        base = { PLAYFIELD_LEFT + HAND_OFFSET, PLAYFIELD_BOTTOM };
+        offset = { TILE_WIDTH, 0.f };
         break;
     case MJ_SOUTH:
-        x_base = PLAYFIELD_RIGHT;
-        y_base = PLAYFIELD_BOTTOM + HAND_OFFSET;
-        x_offset = 0.f;
-        y_offset = TILE_WIDTH;
+        base = { PLAYFIELD_RIGHT, PLAYFIELD_BOTTOM + HAND_OFFSET };
+        offset = { 0.f, TILE_WIDTH };
         break;
     case MJ_WEST:
-        x_base = PLAYFIELD_RIGHT - HAND_OFFSET;
-        y_base = PLAYFIELD_TOP;
-        x_offset = -TILE_WIDTH;
-        y_offset = 0.f;
+        base = { PLAYFIELD_RIGHT - HAND_OFFSET, PLAYFIELD_TOP };
+        offset = { -TILE_WIDTH, 0.f };
         break;
     case MJ_NORTH:
-        x_base = PLAYFIELD_LEFT;
-        y_base = PLAYFIELD_TOP - HAND_OFFSET;
-        x_offset = 0.f;
-        y_offset = -TILE_WIDTH;
+        base = { PLAYFIELD_LEFT, PLAYFIELD_TOP - HAND_OFFSET };
+        offset = { 0.f, -TILE_WIDTH };
         break;
     default: throw 0;
     }
@@ -148,10 +140,130 @@ void renderer2d::submit(mj_hand const &hand, int relative_pos)
     auto &instance = get_instance();
     for (int i = 0; i < hand.size; ++i)
         instance.submit(hand.tiles[i], relative_pos,
-            x_base + i*x_offset, y_base + i*y_offset);
+            base + static_cast<float>(i)*offset);
 }
 
-void renderer2d::submit(mj_tile tile, int orientation, float x, float y)
+void renderer2d::submit(mj_meld const &melds, int relative_pos)
+{
+    glm::vec2 meld_br;
+    glm::vec2 meld_offset;
+    glm::vec2 tile_offset;
+    glm::vec2 ext_offset;
+    switch (relative_pos)
+    {
+    case MJ_EAST:
+        meld_br = { PLAYFIELD_RIGHT, PLAYFIELD_BOTTOM };
+        meld_offset = { 0.f, TILE_HEIGHT };
+        tile_offset = { -TILE_WIDTH, 0.f };
+        ext_offset = { -(TILE_HEIGHT - TILE_WIDTH), 0.f };
+        break;
+    case MJ_SOUTH:
+        meld_br = { PLAYFIELD_RIGHT, PLAYFIELD_TOP };
+        meld_offset = { -TILE_HEIGHT, 0.f };
+        tile_offset = { 0.f, -TILE_WIDTH };
+        ext_offset = { 0.f, -(TILE_HEIGHT - TILE_WIDTH) };
+        break;
+    case MJ_WEST:
+        meld_br = { PLAYFIELD_LEFT, PLAYFIELD_TOP };
+        meld_offset = { 0.f, -TILE_HEIGHT };
+        tile_offset = { TILE_WIDTH, 0.f };
+        ext_offset = { (TILE_HEIGHT - TILE_WIDTH), 0.f };
+        break;
+    case MJ_NORTH:
+        meld_br = { PLAYFIELD_LEFT, PLAYFIELD_BOTTOM };
+        meld_offset = { TILE_HEIGHT, 0.f };
+        tile_offset = { 0.f, TILE_WIDTH };
+        ext_offset = { 0.f, (TILE_HEIGHT - TILE_WIDTH) };
+        break;
+    }
+
+    auto &instance = get_instance();
+    for (auto *trip_ptr = melds.melds; trip_ptr < melds.melds + melds.size; ++trip_ptr)
+    {
+        if (MJ_IS_OPEN(*trip_ptr) && MJ_IS_KONG(*trip_ptr)) /* Open Kong */
+        {
+            mj_tile called_tile = MJ_FIRST(*trip_ptr);
+            switch (MJ_TRIPLE_FROM(*trip_ptr))
+            {
+            case MJ_SOUTH:
+                instance.submit(called_tile, MJ_NEXT_PLAYER(relative_pos),
+                    meld_br);
+                instance.submit(called_tile^0b01, relative_pos,
+                    meld_br + 2.f*tile_offset + ext_offset);
+                instance.submit(called_tile^0b10, relative_pos,
+                    meld_br + 3.f*tile_offset + ext_offset);
+                instance.submit(called_tile^0b11, relative_pos,
+                    meld_br + 4.f*tile_offset + ext_offset);
+                break;
+            case MJ_WEST:
+                instance.submit(called_tile&0b01, relative_pos,
+                    meld_br + tile_offset);
+                instance.submit(called_tile, MJ_NEXT_PLAYER(relative_pos),
+                    meld_br + tile_offset);
+                instance.submit(called_tile^0b10, relative_pos,
+                    meld_br + 3.f*tile_offset + ext_offset);
+                instance.submit(called_tile^0b11, relative_pos,
+                    meld_br + 4.f*tile_offset + ext_offset);
+                break;
+            case MJ_NORTH:
+                instance.submit(called_tile^0b01, relative_pos,
+                    meld_br + tile_offset);
+                instance.submit(called_tile&0b10, relative_pos,
+                    meld_br + 2.f*tile_offset);
+                instance.submit(called_tile^0b11, relative_pos,
+                    meld_br + 3.f*tile_offset);
+                instance.submit(called_tile, MJ_NEXT_PLAYER(relative_pos),
+                    meld_br + 3.f*tile_offset);
+                break;
+            }
+        }
+        else if (MJ_IS_OPEN(*trip_ptr) && !MJ_IS_KONG(*trip_ptr)) /* Pong or Chow */
+        {
+            switch(MJ_TRIPLE_FROM(*trip_ptr))
+            {
+            case MJ_SOUTH:
+                instance.submit(MJ_FIRST(*trip_ptr), MJ_NEXT_PLAYER(relative_pos),
+                    meld_br);
+                instance.submit(MJ_SECOND(*trip_ptr), relative_pos,
+                    meld_br + 2.f*tile_offset + ext_offset);
+                instance.submit(MJ_THIRD(*trip_ptr), relative_pos,
+                    meld_br + 3.f*tile_offset + ext_offset);
+                break;
+            case MJ_WEST:
+                instance.submit(MJ_SECOND(*trip_ptr), relative_pos,
+                    meld_br + tile_offset);
+                instance.submit(MJ_FIRST(*trip_ptr), MJ_NEXT_PLAYER(relative_pos),
+                    meld_br + tile_offset);
+                instance.submit(MJ_THIRD(*trip_ptr), relative_pos,
+                    meld_br + 3.f*tile_offset + ext_offset);
+                break;
+            case MJ_NORTH:
+                instance.submit(MJ_SECOND(*trip_ptr), relative_pos,
+                    meld_br + tile_offset);
+                instance.submit(MJ_THIRD(*trip_ptr), relative_pos,
+                    meld_br + 2.f*tile_offset);
+                instance.submit(MJ_FIRST(*trip_ptr), MJ_NEXT_PLAYER(relative_pos),
+                    meld_br + 2.f*tile_offset);
+                break;
+            }
+        }
+        else /* closed kong */
+        {
+            instance.submit(MJ_INVALID_TILE, relative_pos,
+                meld_br + tile_offset);
+            instance.submit(MJ_FIRST(*trip_ptr), relative_pos,
+                meld_br + 2.f * tile_offset);
+            instance.submit(MJ_SECOND(*trip_ptr), relative_pos,
+                meld_br + 3.f * tile_offset);
+            instance.submit(MJ_INVALID_TILE, relative_pos,
+                meld_br + 4.f * tile_offset);
+        }
+
+        meld_br += meld_offset;
+    }
+}
+
+void renderer2d::submit(mj_tile tile, int orientation, glm::vec2 pos)
 {
     quad2d q;
 
@@ -183,28 +295,28 @@ void renderer2d::submit(mj_tile tile, int orientation, float x, float y)
     switch (orientation)
     {
     case MJ_EAST:
-        q.bl.y = q.br.y = y;
-        q.bl.x = q.tl.x = x;
-        q.tl.y = q.tr.y = y + TILE_HEIGHT_INTERN;
-        q.tr.x = q.br.x = x + TILE_WIDTH_INTERN;
+        q.bl.y = q.br.y = pos.y;
+        q.bl.x = q.tl.x = pos.x;
+        q.tl.y = q.tr.y = pos.y + TILE_HEIGHT_INTERN;
+        q.tr.x = q.br.x = pos.x + TILE_WIDTH_INTERN;
         break;
     case MJ_SOUTH:
-        q.bl.position = { x, y };
-        q.br.position = { x, y + TILE_WIDTH_INTERN };
-        q.tl.position = { x - TILE_HEIGHT_INTERN, y };
-        q.tr.position = { x - TILE_HEIGHT_INTERN, y + TILE_WIDTH_INTERN };
+        q.bl.position = { pos.x, pos.y };
+        q.br.position = { pos.x, pos.y + TILE_WIDTH_INTERN };
+        q.tl.position = { pos.x - TILE_HEIGHT_INTERN, pos.y };
+        q.tr.position = { pos.x - TILE_HEIGHT_INTERN, pos.y + TILE_WIDTH_INTERN };
         break;
     case MJ_WEST:
-        q.bl.position = { x, y };
-        q.br.position = { x - TILE_WIDTH_INTERN, y };
-        q.tl.position = { x, y - TILE_HEIGHT_INTERN };
-        q.tr.position = { x - TILE_WIDTH_INTERN, y - TILE_HEIGHT_INTERN };
+        q.bl.position = { pos.x, pos.y };
+        q.br.position = { pos.x - TILE_WIDTH_INTERN, pos.y };
+        q.tl.position = { pos.x, pos.y - TILE_HEIGHT_INTERN };
+        q.tr.position = { pos.x - TILE_WIDTH_INTERN, pos.y - TILE_HEIGHT_INTERN };
         break;
     case MJ_NORTH:
-        q.bl.position = { x, y };
-        q.br.position = { x, y - TILE_WIDTH_INTERN };
-        q.tl.position = { x + TILE_HEIGHT_INTERN, y };
-        q.tr.position = { x + TILE_HEIGHT_INTERN, y - TILE_WIDTH_INTERN };
+        q.bl.position = { pos.x, pos.y };
+        q.br.position = { pos.x, pos.y - TILE_WIDTH_INTERN };
+        q.tl.position = { pos.x + TILE_HEIGHT_INTERN, pos.y };
+        q.tr.position = { pos.x + TILE_HEIGHT_INTERN, pos.y - TILE_WIDTH_INTERN };
         break;
     default: throw 0;
     }
@@ -216,55 +328,60 @@ void renderer2d::submit(mj_tile tile, int orientation, float x, float y)
     num_quads++;
 }
 
-void renderer2d::submit(mj_tile tile, float x, float y, int relative_pos, bool after_riichi)
+void renderer2d::submit(mj_tile tile, glm::vec2 pos, int relative_pos, bool after_riichi)
 {
+    constexpr float RIICHI_OFFSET = TILE_HEIGHT - TILE_WIDTH;
+    glm::vec2 base;
     switch (relative_pos)
     {
     case MJ_EAST:
     {
-        float const x_base = PLAYFIELD_LEFT + DISCARD_PILE_OFFSET.x;
-        float const y_base = PLAYFIELD_BOTTOM + DISCARD_PILE_OFFSET.y;
+        base = glm::vec2{ PLAYFIELD_LEFT + DISCARD_PILE_OFFSET.x,
+            PLAYFIELD_BOTTOM + DISCARD_PILE_OFFSET.y } +
+            glm::vec2{ pos.x * TILE_WIDTH, -pos.y * TILE_HEIGHT };
 
         if (after_riichi)
-            submit(tile, relative_pos, x_base + (x-1) * TILE_WIDTH + TILE_HEIGHT, y_base - y * TILE_HEIGHT);
-        else
-            submit(tile, relative_pos, x_base + x * TILE_WIDTH, y_base - y * TILE_HEIGHT);
-        return;
+            base.x += RIICHI_OFFSET;
+
+        break;
     }
     case MJ_SOUTH:
     {
-        float const x_base = PLAYFIELD_RIGHT - DISCARD_PILE_OFFSET.y;
-        float const y_base = PLAYFIELD_BOTTOM + DISCARD_PILE_OFFSET.x;
+        base = glm::vec2{ PLAYFIELD_RIGHT - DISCARD_PILE_OFFSET.y,
+            PLAYFIELD_BOTTOM + DISCARD_PILE_OFFSET.x }
+            + glm::vec2{ pos.y * TILE_HEIGHT, pos.x * TILE_WIDTH };
+
         if (after_riichi)
-            submit(tile, relative_pos, x_base + y * TILE_HEIGHT, y_base + (x-1) * TILE_WIDTH + TILE_HEIGHT);
-        else
-            submit(tile, relative_pos, x_base + y * TILE_HEIGHT, y_base + x * TILE_WIDTH);
-        return;
+            base.y += RIICHI_OFFSET;
+
+        break;
     }
     case MJ_WEST:
     {
-        float const x_base = PLAYFIELD_RIGHT - DISCARD_PILE_OFFSET.x;
-        float const y_base = PLAYFIELD_TOP - DISCARD_PILE_OFFSET.y;
+        base = glm::vec2{ PLAYFIELD_RIGHT - DISCARD_PILE_OFFSET.x,
+            PLAYFIELD_TOP - DISCARD_PILE_OFFSET.y } +
+            glm::vec2{ -pos.x * TILE_WIDTH, pos.y * TILE_HEIGHT };
 
         if (after_riichi)
-            submit(tile, relative_pos, x_base - (x-1) * TILE_WIDTH - TILE_HEIGHT, y_base + y * TILE_HEIGHT);
-        else
-            submit(tile, relative_pos, x_base - x * TILE_WIDTH, y_base + y * TILE_HEIGHT);
-        return;
+            base.x -= RIICHI_OFFSET;
+
+        break;
     }
     case MJ_NORTH:
     {
-        float const x_base = PLAYFIELD_LEFT + DISCARD_PILE_OFFSET.y;
-        float const y_base = PLAYFIELD_TOP - DISCARD_PILE_OFFSET.x;
+        base = glm::vec2{ PLAYFIELD_LEFT + DISCARD_PILE_OFFSET.y,
+            PLAYFIELD_TOP - DISCARD_PILE_OFFSET.x } +
+            glm::vec2{ -pos.y * TILE_HEIGHT, -pos.x * TILE_WIDTH };
 
         if (after_riichi)
-            submit(tile, relative_pos, x_base - y * TILE_HEIGHT, y_base - (x-1) * TILE_WIDTH - TILE_HEIGHT);
-        else
-            submit(tile, relative_pos, x_base - y * TILE_HEIGHT, y_base - x * TILE_WIDTH);
-        return;
+            base.y -= RIICHI_OFFSET;
+
+        break;
     }
     default: throw 0;
     }
+
+    submit(tile, relative_pos, base);
 }
 
 void renderer2d::flush()

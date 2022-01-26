@@ -822,7 +822,7 @@ game::state_type game::opponent_call()
         game_log << std::endl;
 
         mj_add_meld(&melds[cur_player], MJ_OPEN_TRIPLE(MJ_TRIPLE(
-            chow_tiles[0], chow_tiles[1], chow_tiles[2])));
+            cur_tile, call_tiles[0][0], call_tiles[0][1])));
 
         std::transform(flags.begin(), flags.end(), flags.begin(),
             [](flag_type f){ return f & ~IPPATSU_FLAG; });

@@ -106,6 +106,9 @@ typedef struct mj_meld {
 #define MJ_KONG_TRIPLE(x) \
 ((x)|(1u<<30))
 
+#define MJ_CALL_TRIPLE(x,p) \
+((x)|((p)<<27))
+
 
 /* Field Access Macros */
 #define MJ_ID_128(x) \
@@ -131,9 +134,12 @@ typedef struct mj_meld {
 #define MJ_THIRD(x) \
 (mj_tile)(((x)>>18)& 0x1ff)
 
+#define MJ_TRIPLE_FROM(x) \
+(int)(((x)>>27)& 3)
+
 /* Checks */
 #define MJ_IS_OPAQUE(x) \
-(mj_bool)((((x) & 0b11)==0)?MJ_TRUE:MJ_FALSE)
+(mj_bool)((((x) & 3)==0)?MJ_TRUE:MJ_FALSE)
 
 #define MJ_IS_HONOR(x) \
 (mj_bool)((MJ_SUIT(x)==MJ_WIND||MJ_SUIT(x)==MJ_DRAGON)?MJ_TRUE:MJ_FALSE)

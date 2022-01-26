@@ -203,7 +203,6 @@ bool game::turn()
         discard();
         break;
     case msg::header::this_player_pong: case msg::header::this_player_chow:
-        cur_player = msg::data<int>(buf);
         player_pong();
         break;
     case msg::header::this_player_kong:

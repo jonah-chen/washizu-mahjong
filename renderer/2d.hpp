@@ -63,14 +63,14 @@ public:
     {
         auto &instance = get_instance();
         for (int i = 0; i < std::min(18ul, discards.size()); ++i)
-            instance.submit(discards[i], static_cast<float>(i%DISCARDS_PER_LINE),
-                static_cast<float>(i/DISCARDS_PER_LINE), relative_pos, i > riichi_turn);
+            instance.submit(discards[i], {i%DISCARDS_PER_LINE, i/DISCARDS_PER_LINE},
+                relative_pos, i > riichi_turn);
 
         for (int i = 18; i < discards.size(); ++i)
-            instance.submit(discards[i], relative_pos, i-12, 2, i > riichi_turn);
+            instance.submit(discards[i], {i-12, 2}, relative_pos, i > riichi_turn);
     }
 
-    void submit(mj_meld meld, int relative_pos);
+    static void submit(mj_meld const &meld, int relative_pos);
 
     static void flush();
     static void clear();
@@ -118,8 +118,8 @@ private:
 private:
     void flush_impl();
     void clear_impl();
-    void submit(mj_tile tile, int orientation, float x, float y);
-    void submit(mj_tile tile, float x, float y, int relative_pos, bool after_riichi);
+    void submit(mj_tile tile, int orientation, glm::vec2 pos);
+    void submit(mj_tile tile, glm::vec2 pos, int relative_pos, bool after_riichi);
 };
 
 #endif

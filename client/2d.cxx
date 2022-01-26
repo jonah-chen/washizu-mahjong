@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
         renderer2d::flush();
 
         glfwSwapBuffers(renderer2d::window_ptr());
-        glfwPollEvents();
+        glfwWaitEvents();
     }
     return 0;
 }

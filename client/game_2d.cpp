@@ -9,6 +9,8 @@ void game::resubmit() const
         renderer2d::submit(hands[i], (i - my_pos) & 3);
     for (int i = 0; i < NUM_PLAYERS; ++i)
         renderer2d::submit(discards[i], (i - my_pos) & 3);
+    for (int i = 0; i < NUM_PLAYERS; ++i)
+        renderer2d::submit(melds[i], (i - my_pos) & 3);
 
     glfwPostEmptyEvent();
 }
@@ -55,6 +57,10 @@ void game::check_calls()
 
 void game::player_pong()
 {
+    int from = cur_player;
+    discards[from].pop_back();
+
+    cur_player = msg::data<int>(buf);
     std::array<mj_tile, 3> meld_tiles {cur_tile};
     for (int i = 1; i < 3; ++i)
     {
@@ -68,10 +74,9 @@ void game::player_pong()
         if (!mj_discard_tile(&hands[cur_player], meld_tiles[i]))
             hands[cur_player].size--;
     }
-    std::sort(meld_tiles.begin(), meld_tiles.end());
 
-    mj_add_meld(&melds[cur_player], MJ_OPEN_TRIPLE(MJ_TRIPLE(
-        meld_tiles[0], meld_tiles[1], meld_tiles[2])));
+    auto triple = MJ_OPEN_TRIPLE(MJ_TRIPLE(meld_tiles[0], meld_tiles[1], meld_tiles[2]));
+    mj_add_meld(&melds[cur_player], MJ_CALL_TRIPLE(triple, (from - cur_player) & 3));
 
     resubmit();
 }

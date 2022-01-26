@@ -143,6 +143,7 @@ void game::check_calls()
 
 void game::player_pong()
 {
+    cur_player = msg::data<int>(buf);
     std::cout << "Player " << cur_player << " called " <<
         (msg::type(buf)==msg::header::this_player_pong ? "PONG\n" : "CHOW\n");
 
