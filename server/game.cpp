@@ -44,7 +44,7 @@ game::game(unsigned short id, std::ostream &server_log,
         {
             if (g_id == msg::NEW_PLAYER)
             {
-                time(server_log) << "New connection from " << 
+                time(server_log) << "New connection from " <<
                     new_player->ip().value_or("unknown ip") << " assigned " <<
                     new_player->uid << std::endl;
                 players.emplace_back(std::move(new_player));
@@ -665,6 +665,8 @@ game::state_type game::opponent_call()
             break;
         case msg::header::pass_calls:
             priority[9-player_p] = priority[6-player_p] = priority[3-player_p] = MJ_FALSE;
+            if (player_p == 0)
+                priority[0] = MJ_FALSE;
             break;
         case msg::header::call_with_tile:
             if (call_tiles[player_p].size() < 3)
@@ -763,8 +765,10 @@ game::state_type game::opponent_call()
         game_log << kong_player << " kong" << std::endl;
         broadcast(msg::header::this_player_kong, kong_player);
         for (auto const &tile : call_tiles[kong_player_p])
+        {
+            mj_discard_tile(&hands[kong_player], tile);
             broadcast(msg::header::tile, tile);
-
+        }
         mj_add_meld(&melds[kong_player], MJ_KONG_TRIPLE(MJ_OPEN_TRIPLE(MJ_TRIPLE(
             cur_tile, call_tiles[kong_player_p][0], call_tiles[kong_player_p][1]))));
 
@@ -783,7 +787,10 @@ game::state_type game::opponent_call()
         game_log << pong_player << " pong" << std::endl;
         broadcast(msg::header::this_player_pong, pong_player);
         for (auto const &tile : call_tiles[pong_player_p])
+        {
+            mj_discard_tile(&hands[pong_player], tile); /*might need to check for validity*/
             broadcast(msg::header::tile, tile);
+        }
 
         mj_add_meld(&melds[pong_player], MJ_OPEN_TRIPLE(MJ_TRIPLE(
             cur_tile, call_tiles[pong_player_p][0], call_tiles[pong_player_p][1])));
@@ -816,6 +823,7 @@ game::state_type game::opponent_call()
 
         for (auto const &tile : call_tiles[0])
         {
+            mj_discard_tile(&hands[cur_player], tile); /*might need to check for validity*/
             game_log << tile << " ";
             broadcast(msg::header::tile, tile);
         }
