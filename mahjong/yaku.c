@@ -487,7 +487,7 @@ inline int mj_basic_score(int fu, int fan)
     return 0;
 }
 
-int mj_score(int *fu, int *fan, unsigned short *yakus, 
+int mj_score(int *fu, int *fan, unsigned short *yakus,
     mj_hand const *hand, mj_meld const *melds, mj_tile ron, mj_bool tsumo, int prevailing_wind, int seat_wind)
 {
     mj_meld result[MAX_RESULTS*4];
@@ -500,24 +500,24 @@ int mj_score(int *fu, int *fan, unsigned short *yakus,
 
     if (n == 0)
         return 0;
-        
+
     int m_score = 0;
     for (mj_size i = 0; i < n; ++i)
     {
         memcpy(m_yakus, yakus, sizeof(m_yakus));
-        int m_fu = mj_fu(yakus, result+(4*i), pairs[i], ron, tsumo, prevailing_wind, seat_wind);
-        int m_fan = mj_fan(yakus, result+(4*i), pairs[i], prevailing_wind, seat_wind);
+        int m_fu = mj_fu(m_yakus, result+(4*i), pairs[i], ron, tsumo, prevailing_wind, seat_wind);
+        int m_fan = mj_fan(m_yakus, result+(4*i), pairs[i], prevailing_wind, seat_wind);
 
         if (m_score < mj_basic_score(m_fu, m_fan+doras))
         {
             m_score = mj_basic_score(m_fu, m_fan+doras);
             *fu = m_fu;
             *fan = m_fan;
-            memcpy(yakus, best_yakus, sizeof(m_yakus));
+            memcpy(best_yakus, m_yakus, sizeof(best_yakus));
         }
     }
 
-    memcpy(best_yakus, yakus, sizeof(m_yakus));
+    memcpy(yakus, best_yakus, sizeof(m_yakus));
     yakus[MJ_YAKU_DORA] = doras;
     return m_score;
 }
