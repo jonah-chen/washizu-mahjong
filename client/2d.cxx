@@ -15,9 +15,11 @@ int main(int argc, char *argv[])
 {
     std::thread t(run_game);
     t.detach();
+
     glfwSetMouseButtonCallback(renderer2d::window_ptr(), input::on_mouse_button);
     glfwSetKeyCallback(renderer2d::window_ptr(), input::on_key);
     glClearColor(0.1f, 0.4f, 0.0f, 0.5f);
+
     while (!glfwWindowShouldClose(renderer2d::window_ptr()))
     {
         glClear(GL_COLOR_BUFFER_BIT);

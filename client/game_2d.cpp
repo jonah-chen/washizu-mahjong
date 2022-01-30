@@ -17,7 +17,9 @@ void game::resubmit() const
         renderer2d::submit(discards[i], (i - my_pos) & 3);
     for (int i = 0; i < NUM_PLAYERS; ++i)
         renderer2d::submit(melds[i], (i - my_pos) & 3);
+    renderer2d::submit(400, {10.f, 10.f}, 0);
 
+    renderer2d::submit_calls();
     glfwPostEmptyEvent();
 }
 

@@ -8,12 +8,22 @@ std::vector<quad2d> text::render_num(int num, glm::vec2 offset, glm::vec2 h_sz, 
 {
     std::vector<quad2d> quads;
 
+    // count number of digits
+    int digits = 0;
+    int n = num;
+    while (n) {
+        n /= 10;
+        ++digits;
+    }
+
+    offset += h_sz * static_cast<float>(digits - 1);
+
     while (num)
     {
         int digit = num % 10;
         num /= 10;
         auto quad = render_digit(digit, offset, h_sz, v_sz);
-        offset += h_sz;
+        offset -= h_sz;
         quads.push_back(quad);
     }
 

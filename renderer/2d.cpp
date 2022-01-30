@@ -2,6 +2,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <stdexcept>
+#include <cstring>
 
 #ifndef NDEBUG
 
@@ -48,7 +49,8 @@ GLFWwindow *renderer2d::init_window()
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
     glfwWindowHint(GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
-    GLFWwindow *new_window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Washizu Mahjong", nullptr, nullptr);
+    GLFWwindow *new_window = glfwCreateWindow(
+        WINDOW_WIDTH, WINDOW_HEIGHT, "Washizu Mahjong", nullptr, nullptr);
 
     if (!new_window)
         return nullptr;
@@ -106,7 +108,8 @@ renderer2d::renderer2d() : window(init_window())
 
     program.bind();
     program.fill_tex_slots("tex_array");
-    program.uniform("projection", glm::ortho(PLAYFIELD_LEFT, PLAYFIELD_RIGHT, PLAYFIELD_BOTTOM, PLAYFIELD_TOP));
+    program.uniform("projection", glm::ortho(
+        PLAYFIELD_LEFT, PLAYFIELD_RIGHT, PLAYFIELD_BOTTOM, PLAYFIELD_TOP));
 }
 
 renderer2d::~renderer2d() noexcept
@@ -116,6 +119,45 @@ renderer2d::~renderer2d() noexcept
     glDeleteBuffers(1, &ebo);
     glDeleteVertexArrays(1, &vao);
     glfwTerminate();
+}
+
+void renderer2d::submit_calls()
+{
+    auto &instance = get_instance();
+
+    constexpr glm::vec2 CALL_TEXT_WIDTH = { CALL_TEXT_SIZE.x, 0.f };
+
+    instance.submit(text::game_call::ron,
+        CALL_TEXT_OFFSET + 0.f * CALL_TEXT_WIDTH, call_flags & RON_FLAG);
+    instance.submit(text::game_call::tsumo,
+        CALL_TEXT_OFFSET + 1.f * CALL_TEXT_WIDTH, call_flags & TSUMO_FLAG);
+    instance.submit(text::game_call::riichi,
+        CALL_TEXT_OFFSET + 2.f * CALL_TEXT_WIDTH, call_flags & RIICHI_FLAG);
+    instance.submit(text::game_call::kong,
+        CALL_TEXT_OFFSET + 3.f * CALL_TEXT_WIDTH, call_flags & KONG_FLAG);
+    instance.submit(text::game_call::pong,
+        CALL_TEXT_OFFSET + 4.f * CALL_TEXT_WIDTH, call_flags & PONG_FLAG);
+    instance.submit(text::game_call::chow,
+        CALL_TEXT_OFFSET + 5.f * CALL_TEXT_WIDTH, call_flags & CHOW_FLAG);
+}
+
+void renderer2d::submit(int number, glm::vec2 topleft, int relative_pos)
+{
+    auto &instance = get_instance();
+    std::vector<quad2d> quads (std::move(instance.text_tex.render_num(
+        number, topleft, {10.f, 0.0f}, {0.0f, -5.f})));
+
+    memcpy(instance.buffer_ptr, quads.data(), quads.size() * sizeof(quad2d));
+    instance.buffer_ptr += quads.size();
+    instance.num_quads += quads.size();
+}
+
+void renderer2d::submit(text::game_call call, glm::vec2 topleft, bool active)
+{
+    quad2d q = text_tex.render_call(call, topleft, CALL_TEXT_SIZE_INTERN);
+    q.tint(active ? AVAILABLE_CALL : UNAVAILABLE_CALL);
+    *buffer_ptr++ = q;
+    num_quads++;
 }
 
 void renderer2d::submit(mj_hand const &hand, int relative_pos)
@@ -415,3 +457,5 @@ void renderer2d::clear_impl()
     buffer_ptr = buffer;
     num_quads = 0;
 }
+
+unsigned char renderer2d::call_flags {};

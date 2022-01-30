@@ -78,6 +78,7 @@ void texture::bind(int slot) noexcept
 {
     if (bound_slot == slot)
         return;
+    bound_slot = slot;
     if (bound_slot >= 0)
     {
         glActiveTexture(GL_TEXTURE0 + bound_slot);

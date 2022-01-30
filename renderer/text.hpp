@@ -49,6 +49,7 @@ public:
      * @return The vertices to render the character as a quad2d struct.
      */
     quad2d render_call(game_call call, glm::vec2 offset, glm::vec2 sz) const;
+
 private:
     quad2d render_digit(int num, glm::vec2 offset, glm::vec2 h_sz, glm::vec2 v_sz) const;
 };

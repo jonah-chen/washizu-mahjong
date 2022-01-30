@@ -32,10 +32,7 @@ public:
         OPENGL_SUBVERSION   = 5,
         OPENGL_PROFILE      = GLFW_OPENGL_CORE_PROFILE,
         WINDOW_WIDTH        = 1024,
-        WINDOW_HEIGHT       = 1024,
-        TILES_TEX_SLOT      = 0,
-        TEXT_TEX_SLOT       = 1,
-        DISCARDS_PER_LINE   = 6;
+        WINDOW_HEIGHT       = 1024;
 
     static constexpr float
         PLAYFIELD_LEFT      = 0.0f,
@@ -44,18 +41,43 @@ public:
         PLAYFIELD_TOP       = 75.0f,
         TILE_WIDTH          = 3.0f,
         TILE_HEIGHT         = 4.0f,
-        TILE_WIDTH_INTERN   = 2.77f,
-        TILE_HEIGHT_INTERN  = 3.91f,
         HAND_OFFSET         = 16.0f;
 
-    static constexpr glm::vec2 DISCARD_PILE_OFFSET = { 28.0f, 24.0f };
+    static constexpr unsigned char
+        RON_FLAG            = 0x80,
+        TSUMO_FLAG          = 0x40,
+        RIICHI_FLAG         = 0x20,
+        KONG_FLAG           = 0x10,
+        PONG_FLAG           = 0x08,
+        CHOW_FLAG           = 0x04;
+
+    static constexpr glm::vec2
+        DISCARD_PILE_OFFSET     = { 28.0f, 24.0f },
+        CALL_TEXT_OFFSET        = { 46.6f, 21.0f },
+        CALL_TEXT_SIZE          = { 3.2f, 3.0f };
 
     static constexpr mj_tile TSUMOGIRI_FLAG = (1 << 14);
 
     static constexpr glm::vec4
         DEFAULT_TINT    = { 0.94f, 0.94f, 0.94f, 0.96f },
         TSUMOGIRI_TINT  = { 0.90f, 1.00f, 1.00f, 0.74f },
-        HIGHLIGHT_TINT  = { 1.00f, 0.70f, 0.60f, 1.00f };
+        HIGHLIGHT_TINT  = { 1.00f, 0.70f, 0.60f, 1.00f },
+        UNAVAILABLE_CALL= { 0.50f, 0.50f, 0.50f, 0.80f },
+        AVAILABLE_CALL  = { 1.00f, 0.30f, 0.30f, 1.00f };
+
+private:
+    static constexpr int
+        TILES_TEX_SLOT      = 0,
+        TEXT_TEX_SLOT       = 1,
+        DISCARDS_PER_LINE   = 6;
+    static constexpr float
+        TILE_WIDTH_INTERN   = 2.77f,
+        TILE_HEIGHT_INTERN  = 3.91f;
+    static constexpr
+        glm::vec2 CALL_TEXT_SIZE_INTERN = { 3.0f, -3.0f };
+
+public:
+    static unsigned char call_flags;
 
 public:
     ~renderer2d() noexcept;
@@ -64,6 +86,10 @@ public:
     renderer2d &operator=(renderer2d const &) = delete;
 
     static renderer2d &get_instance();
+
+    static void submit(int number, glm::vec2 topleft, int relative_pos);
+
+    static void submit_calls();
 
     static void submit(mj_hand const &hand, int relative_pos);
 
@@ -134,6 +160,7 @@ private:
     void clear_impl();
     void submit(mj_tile tile, int orientation, glm::vec2 pos, glm::vec4 tint=DEFAULT_TINT);
     void submit(mj_tile tile, glm::vec2 pos, int relative_pos, bool after_riichi);
+    void submit(text::game_call call, glm::vec2 topleft, bool active);
 };
 
 #endif
