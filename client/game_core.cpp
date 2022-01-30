@@ -120,8 +120,19 @@ void game::command(std::function<void(std::string&)> const &get)
         }
         case 'c'...'l':
         {
+            if (((my_pos - cur_player) & 3) != 1)
+            {
+                DEBUG_PRINT("You are not in the sopt to call chow yet!\n");
+                break;
+            }
+            mj_size chows = mj_chow_available(hands[my_pos], cur_tile, c_pairs.data());
+            if (!chows)
+            {
+                DEBUG_PRINT("No chow available\n");
+                break;
+            }
             int c = cmd[0] - 'c';
-            if (c >= 0)
+            if (c >= 0 && c < chows)
             {
                 interface.send(msg::header::call_chow);
                 interface.send(msg::header::call_with_tile, MJ_FIRST(c_pairs[c]));
@@ -221,6 +232,9 @@ bool game::turn()
         break;
     case msg::header::dora_indicator:
         doras.push_back(msg::data<mj_tile>(buf));
+        break;
+    case msg::header::reject:
+        std::cout << "Your request to server is REJECTED!\n";
         break;
     default:
         std::cerr << "Unknown Message from server: " <<

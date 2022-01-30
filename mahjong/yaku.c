@@ -8,7 +8,7 @@ static mj_bool closed;
 
 /**
  * Closed Only.
- * Prereqs: Ryanpeikou 
+ * Prereqs: Ryanpeikou
  */
 static inline void one_sequence(mj_meld const *melds)
 {
@@ -69,7 +69,7 @@ static inline void yakuhai(mj_meld const *melds, int prevailing_wind, int seat_w
 
 /**
  * Closed or Open.
- * Prereqs: Pure must be called first with MJ_TRUE before MJ_FALSE. 
+ * Prereqs: Pure must be called first with MJ_TRUE before MJ_FALSE.
  * all_terminals must be called before calling with MJ_FALSE.
  */
 static inline void chk_19(mj_meld const *melds, mj_pair pair, mj_bool pure)
@@ -182,7 +182,7 @@ static inline void straight(mj_meld const *melds)
 /**
  * Closed or Open.
  * Prereqs: None.
- */ 
+ */
 static inline void all_sets(mj_meld const *melds)
 {
     for (mj_size i = 0; i < melds->size; ++i)
@@ -259,7 +259,7 @@ static inline void three_dragon(mj_meld const *meld, mj_pair pair)
     // pair must be a dragon
     if (MJ_SUIT(pair)!=MJ_DRAGON)
         return;
-    
+
     int dragons = 0;
 
     for (mj_size i = 0; i < meld->size; ++i)
@@ -327,7 +327,7 @@ int mj_fu(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, mj_tile ro
     closed = MJ_TRUE;
     int fu = MJ_BASE_FU;
     int wait_fu = 2;
-    for (mj_size i = 0; i < MJ_MAX_TRIPLES_IN_HAND; ++i) 
+    for (mj_size i = 0; i < MJ_MAX_TRIPLES_IN_HAND; ++i)
     {
         mj_triple triple = melds->melds[i];
 
@@ -342,7 +342,7 @@ int mj_fu(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, mj_tile ro
             /* Kong */
             if (MJ_IS_KONG(triple)==MJ_TRUE)
                 triple_points <<= 2;
-            
+
             /* Closed */
             if (MJ_IS_OPEN(triple)==MJ_FALSE && (
                 tsumo==MJ_TRUE || MJ_ID_128(ron)!= MJ_ID_128(triple)))
@@ -354,15 +354,15 @@ int mj_fu(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, mj_tile ro
 
             fu += triple_points;
         }
-        else if ((MJ_ID_128(ron) == MJ_ID_128(triple) && MJ_NUMBER(ron) != 6) || 
+        else if ((MJ_ID_128(ron) == MJ_ID_128(triple) && MJ_NUMBER(ron) != 6) ||
                 (MJ_ID_128(ron) == MJ_ID_128(MJ_THIRD(triple)) && MJ_NUMBER(ron) != 2))
             wait_fu = 0;
     }
 
     fu += wait_fu;
 
-    if (MJ_SUIT(pair)==MJ_DRAGON || 
-        MJ_ID_128(pair)==MJ_128_TILE(MJ_WIND, seat_wind) || 
+    if (MJ_SUIT(pair)==MJ_DRAGON ||
+        MJ_ID_128(pair)==MJ_128_TILE(MJ_WIND, seat_wind) ||
         MJ_ID_128(pair)==MJ_128_TILE(MJ_WIND, prevailing_wind))
         fu += 2;
 
@@ -392,7 +392,7 @@ int mj_fu(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, mj_tile ro
 
 int mj_fan(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, int prevailing_wind, int seat_wind)
 {
-    unsigned short *_tmp = yakus; 
+    unsigned short *_tmp = yakus;
     yakus = _yakus;
 
     two_sequence(melds);
@@ -423,10 +423,10 @@ int mj_seven_pairs(unsigned short *_yakus, mj_hand const *hand)
 {
     if (hand->size != MJ_MAX_HAND_SIZE)
         return 0;
-    
+
     if (mj_pairs(*hand, NULL) != 7)
         return 0;
-    
+
     unsigned short *_tmp = yakus;
     yakus = _yakus;
     yakus[MJ_YAKU_CHIITOITSU] = 2;
@@ -465,7 +465,7 @@ int mj_seven_pairs(unsigned short *_yakus, mj_hand const *hand)
         yakus[MJ_YAKU_HONROUTOU] = 2;
     else if (tanyao)
         yakus[MJ_YAKU_TANYAO] = 1;
-    
+
     int fan = 0;
     for (int i = 0; i < MJ_YAKU_ARR_SIZE; ++i)
     {

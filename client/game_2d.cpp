@@ -152,5 +152,3 @@ void game::payment()
 
     resubmit();
 }
-
-

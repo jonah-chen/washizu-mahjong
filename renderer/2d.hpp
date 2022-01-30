@@ -99,10 +99,10 @@ public:
         auto &instance = get_instance();
         for (int i = 0; i < std::min(18ul, discards.size()); ++i)
             instance.submit(discards[i], {i%DISCARDS_PER_LINE, i/DISCARDS_PER_LINE},
-                relative_pos, i > riichi_turn);
+                relative_pos, i, riichi_turn);
 
         for (int i = 18; i < discards.size(); ++i)
-            instance.submit(discards[i], {i-12, 2}, relative_pos, i > riichi_turn);
+            instance.submit(discards[i], {i-12, 2}, relative_pos, i, riichi_turn);
     }
 
     static void submit(mj_meld const &meld, int relative_pos);
@@ -159,7 +159,7 @@ private:
     void flush_impl();
     void clear_impl();
     void submit(mj_tile tile, int orientation, glm::vec2 pos, glm::vec4 tint=DEFAULT_TINT);
-    void submit(mj_tile tile, glm::vec2 pos, int relative_pos, bool after_riichi);
+    void submit(mj_tile tile, glm::vec2 pos, int relative_pos, int turn, int riichi_turn);
     void submit(text::game_call call, glm::vec2 topleft, bool active);
 };
 

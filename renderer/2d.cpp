@@ -377,10 +377,12 @@ void renderer2d::submit(mj_tile tile, int orientation, glm::vec2 pos, glm::vec4 
     num_quads++;
 }
 
-void renderer2d::submit(mj_tile tile, glm::vec2 pos, int relative_pos, bool after_riichi)
+void renderer2d::submit(mj_tile tile, glm::vec2 pos, int relative_pos, int turn, int riichi_turn)
 {
     constexpr float RIICHI_OFFSET = TILE_HEIGHT - TILE_WIDTH;
     glm::vec2 base;
+
+    bool const offset_riichi = turn > riichi_turn && turn / DISCARDS_PER_LINE == riichi_turn / DISCARDS_PER_LINE;
     switch (relative_pos)
     {
     case MJ_EAST:
@@ -389,7 +391,7 @@ void renderer2d::submit(mj_tile tile, glm::vec2 pos, int relative_pos, bool afte
             PLAYFIELD_BOTTOM + DISCARD_PILE_OFFSET.y } +
             glm::vec2{ pos.x * TILE_WIDTH, -pos.y * TILE_HEIGHT };
 
-        if (after_riichi)
+        if (offset_riichi)
             base.x += RIICHI_OFFSET;
 
         break;
@@ -400,7 +402,7 @@ void renderer2d::submit(mj_tile tile, glm::vec2 pos, int relative_pos, bool afte
             PLAYFIELD_BOTTOM + DISCARD_PILE_OFFSET.x }
             + glm::vec2{ pos.y * TILE_HEIGHT, pos.x * TILE_WIDTH };
 
-        if (after_riichi)
+        if (offset_riichi)
             base.y += RIICHI_OFFSET;
 
         break;
@@ -411,7 +413,7 @@ void renderer2d::submit(mj_tile tile, glm::vec2 pos, int relative_pos, bool afte
             PLAYFIELD_TOP - DISCARD_PILE_OFFSET.y } +
             glm::vec2{ -pos.x * TILE_WIDTH, pos.y * TILE_HEIGHT };
 
-        if (after_riichi)
+        if (offset_riichi)
             base.x -= RIICHI_OFFSET;
 
         break;
@@ -422,17 +424,20 @@ void renderer2d::submit(mj_tile tile, glm::vec2 pos, int relative_pos, bool afte
             PLAYFIELD_TOP - DISCARD_PILE_OFFSET.x } +
             glm::vec2{ -pos.y * TILE_HEIGHT, -pos.x * TILE_WIDTH };
 
-        if (after_riichi)
+        if (offset_riichi)
             base.y -= RIICHI_OFFSET;
 
         break;
     }
     default: throw 0;
     }
+
+    int orientation = relative_pos + (turn == riichi_turn);
+
     if (tile & TSUMOGIRI_FLAG)
-        submit(tile, relative_pos, base, TSUMOGIRI_TINT);
+        submit(tile, orientation, base, TSUMOGIRI_TINT);
     else
-        submit(tile, relative_pos, base);
+        submit(tile, orientation, base);
 }
 
 void renderer2d::flush()
