@@ -86,6 +86,8 @@ struct quad_indices : public std::array<index_type, QUADS*6>
 struct quad2d
 {
     vertex2d bl, br, tr, tl;
+    void tint(glm::vec4 const &color);
+    void tex_index(float index);
 };
 
 bool load_obj(char const *filename, std::vector<index_type> &indices, std::vector<vertex3d> &vertices);

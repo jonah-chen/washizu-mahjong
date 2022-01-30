@@ -2,6 +2,12 @@
 #include "renderer/2d.hpp"
 #include "game.hpp"
 
+struct call {
+    std::string call;
+    mj_tile t1, t2;
+};
+
+
 void game::resubmit() const
 {
     renderer2d::clear();
@@ -43,7 +49,8 @@ void game::draw()
 void game::discard()
 {
     cur_tile = msg::data<mj_tile>(buf);
-    mj_discard_tile(&hands[cur_player], cur_tile);
+    if (!mj_discard_tile(&hands[cur_player], cur_tile))
+        --hands[cur_player].size;
     auto tmp_tile = cur_tile;
     if (msg::type(buf)==msg::header::tsumogiri_tile)
         tmp_tile |= renderer2d::TSUMOGIRI_FLAG;

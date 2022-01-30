@@ -93,3 +93,19 @@ bool load_obj(char const *filename, std::vector<index_type> &indices, std::vecto
 
     return true;
 }
+
+void quad2d::tint(glm::vec4 const &color)
+{
+    bl.tint = color;
+    br.tint = color;
+    tr.tint = color;
+    tl.tint = color;
+}
+
+void quad2d::tex_index(float index)
+{
+    bl.tex_index = index;
+    br.tex_index = index;
+    tr.tex_index = index;
+    tl.tex_index = index;
+}

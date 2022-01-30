@@ -33,6 +33,7 @@ public:
         WINDOW_WIDTH        = 1024,
         WINDOW_HEIGHT       = 1024,
         TILES_TEX_SLOT      = 0,
+        FONTS_TEX_SLOT      = 1,
         DISCARDS_PER_LINE   = 6;
 
     static constexpr float
@@ -46,11 +47,14 @@ public:
         TILE_HEIGHT_INTERN  = 3.91f,
         HAND_OFFSET         = 16.0f;
 
-    static constexpr glm::vec2 DISCARD_PILE_OFFSET = {28.0f, 24.0f};
+    static constexpr glm::vec2 DISCARD_PILE_OFFSET = { 28.0f, 24.0f };
 
     static constexpr mj_tile TSUMOGIRI_FLAG = (1 << 14);
 
-    static constexpr glm::vec4 TSUMOGIRI_TINT = {0.9f, 1.0f, 1.0f, 0.7f};
+    static constexpr glm::vec4
+        DEFAULT_TINT    = { 0.94f, 0.94f, 0.94f, 0.96f },
+        TSUMOGIRI_TINT  = { 0.90f, 1.00f, 1.00f, 0.74f },
+        HIGHLIGHT_TINT  = { 1.00f, 0.70f, 0.60f, 1.00f };
 
 public:
     ~renderer2d() noexcept;
@@ -67,14 +71,8 @@ public:
     {
         auto &instance = get_instance();
         for (int i = 0; i < std::min(18ul, discards.size()); ++i)
-        {
-            if (discards[i] & TSUMOGIRI_FLAG)
             instance.submit(discards[i], {i%DISCARDS_PER_LINE, i/DISCARDS_PER_LINE},
                 relative_pos, i > riichi_turn);
-            else
-            instance.submit(discards[i], {i%DISCARDS_PER_LINE, i/DISCARDS_PER_LINE},
-                relative_pos, i > riichi_turn);
-        }
 
         for (int i = 18; i < discards.size(); ++i)
             instance.submit(discards[i], {i-12, 2}, relative_pos, i > riichi_turn);
@@ -132,7 +130,7 @@ private:
 private:
     void flush_impl();
     void clear_impl();
-    void submit(mj_tile tile, int orientation, glm::vec2 pos, glm::vec4 tint=glm::vec4(1.0f));
+    void submit(mj_tile tile, int orientation, glm::vec2 pos, glm::vec4 tint=DEFAULT_TINT);
     void submit(mj_tile tile, glm::vec2 pos, int relative_pos, bool after_riichi);
 };
 

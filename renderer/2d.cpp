@@ -101,7 +101,7 @@ renderer2d::renderer2d() : window(init_window())
         (const void*)offsetof(vertex2d, tex_index));
     glEnableVertexAttribArray(3);
 
-    tex.bind(0);
+    tex.bind(TILES_TEX_SLOT);
     program.bind();
     program.fill_tex_slots("tex_array");
     program.uniform("projection", glm::ortho(PLAYFIELD_LEFT, PLAYFIELD_RIGHT, PLAYFIELD_BOTTOM, PLAYFIELD_TOP));
@@ -270,7 +270,7 @@ void renderer2d::submit(mj_tile tile, int orientation, glm::vec2 pos, glm::vec4 
 {
     quad2d q;
 
-    q.tl.tint = q.br.tint = q.tr.tint = q.bl.tint = tint;
+    q.tint(tint);
 
     if (tile == MJ_INVALID_TILE)
     {
@@ -326,7 +326,7 @@ void renderer2d::submit(mj_tile tile, int orientation, glm::vec2 pos, glm::vec4 
     default: throw 0;
     }
 
-    q.tr.tex_index = q.br.tex_index = q.tl.tex_index = q.bl.tex_index = TILES_TEX_SLOT;
+    q.tex_index(TILES_TEX_SLOT);
 
     *buffer_ptr = q;
     buffer_ptr++;
