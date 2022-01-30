@@ -94,6 +94,8 @@ void game::player_pong()
 
 void game::player_kong()
 {
+    int from = cur_player;
+    cur_player = msg::data<int>(buf);
     std::array<mj_tile, 3> meld_tiles;
     for (int i = 0; i < 3; ++i)
     {
@@ -107,9 +109,9 @@ void game::player_kong()
         if (!mj_discard_tile(&hands[cur_player], meld_tiles[i]))
             hands[cur_player].size--;
     }
-
-    mj_add_meld(&melds[cur_player], MJ_KONG_TRIPLE(MJ_TRIPLE(
+    auto triple = MJ_OPEN_TRIPLE(MJ_KONG_TRIPLE(MJ_TRIPLE(
         meld_tiles[0], meld_tiles[1], meld_tiles[2])));
+    mj_add_meld(&melds[cur_player], MJ_CALL_TRIPLE(triple, (from - cur_player) & 3));
 
     resubmit();
 }

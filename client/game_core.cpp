@@ -209,10 +209,7 @@ bool game::turn()
         if (cur_player == msg::data<int>(buf))
             self_kong();
         else
-        {
-            cur_player = msg::data<int>(buf);
             player_kong();
-        }
         break;
     case msg::header::this_player_riichi:
         in_riichi = (cur_player == my_pos) ? true : in_riichi;

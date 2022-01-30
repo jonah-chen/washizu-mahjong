@@ -174,6 +174,7 @@ void game::player_pong()
 
 void game::player_kong()
 {
+    cur_player = msg::data<int>(buf);
     std::cout << "Player " << cur_player << " called KONG\n";
 
     std::array<mj_tile, 3> meld_tiles;
