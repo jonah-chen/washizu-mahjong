@@ -7,6 +7,7 @@
 #include "mesh.hpp"
 #include "shader.hpp"
 #include "texture.hpp"
+#include "text.hpp"
 #include "mahjong/mahjong.h"
 
 #include <GL/glew.h>
@@ -33,7 +34,7 @@ public:
         WINDOW_WIDTH        = 1024,
         WINDOW_HEIGHT       = 1024,
         TILES_TEX_SLOT      = 0,
-        FONTS_TEX_SLOT      = 1,
+        TEXT_TEX_SLOT       = 1,
         DISCARDS_PER_LINE   = 6;
 
     static constexpr float
@@ -125,7 +126,8 @@ private:
 "}\n"
     };
 
-    texture tex {"/home/john/CLionProjects/washizu-mahjong/assets/texture/tiles.png"};
+    texture tile_tex {"/home/john/CLionProjects/washizu-mahjong/assets/texture/tiles.png"};
+    text text_tex {"/home/john/CLionProjects/washizu-mahjong/assets/texture/text.png"};
 
 private:
     void flush_impl();

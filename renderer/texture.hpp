@@ -13,9 +13,9 @@ public:
     void bind(int tex_slot) noexcept;
     void unbind() noexcept;
 
-private:
+protected:
     unsigned int tex_id;
-    int bound_slot {};
+    int bound_slot { -1 };
 };
 
 #endif

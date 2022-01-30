@@ -101,7 +101,9 @@ renderer2d::renderer2d() : window(init_window())
         (const void*)offsetof(vertex2d, tex_index));
     glEnableVertexAttribArray(3);
 
-    tex.bind(TILES_TEX_SLOT);
+    tile_tex.bind(TILES_TEX_SLOT);
+    text_tex.bind(TEXT_TEX_SLOT);
+
     program.bind();
     program.fill_tex_slots("tex_array");
     program.uniform("projection", glm::ortho(PLAYFIELD_LEFT, PLAYFIELD_RIGHT, PLAYFIELD_BOTTOM, PLAYFIELD_TOP));

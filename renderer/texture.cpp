@@ -59,7 +59,7 @@ texture::texture(const char *path)
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, img.width(), img.height(), 0,
@@ -78,7 +78,7 @@ void texture::bind(int slot) noexcept
 {
     if (bound_slot == slot)
         return;
-    if (bound_slot)
+    if (bound_slot >= 0)
     {
         glActiveTexture(GL_TEXTURE0 + bound_slot);
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -90,10 +90,10 @@ void texture::bind(int slot) noexcept
 
 void texture::unbind() noexcept
 {
-    if (bound_slot)
+    if (bound_slot >= 0)
     {
         glActiveTexture(GL_TEXTURE0 + bound_slot);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
-    bound_slot = 0;
+    bound_slot = -1;
 }
