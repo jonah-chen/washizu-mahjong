@@ -1,7 +1,7 @@
 #include "interaction.h"
 #include <string.h>
 
-void mj_empty_hand(mj_hand *hand) 
+void mj_empty_hand(mj_hand *hand)
 {
     hand->size = 0;
     for (mj_tile *i = hand->tiles; i < hand->tiles + MJ_MAX_HAND_SIZE; ++i)
@@ -20,7 +20,7 @@ mj_bool mj_discard_tile(mj_hand *hand, mj_tile tile)
 {
     for (mj_tile *i = hand->tiles; i < hand->tiles + hand->size; ++i)
     {
-        if (*i == tile) 
+        if (*i == tile)
         {
             *i = MJ_INVALID_TILE;
             mj_sort_hand(hand);
@@ -28,7 +28,7 @@ mj_bool mj_discard_tile(mj_hand *hand, mj_tile tile)
             return MJ_TRUE;
         }
     }
-    return MJ_FALSE;    
+    return MJ_FALSE;
 }
 
 inline void mj_empty_melds(mj_meld *melds)
@@ -45,7 +45,7 @@ mj_bool mj_pong_available(mj_hand hand, mj_tile const tile, mj_pair *pong_tiles)
 {
     if (tile == MJ_INVALID_TILE)
         return MJ_FALSE;
-    
+
     for (mj_tile *i = hand.tiles; i < hand.tiles + hand.size-1 && MJ_ID_128(*i) <= MJ_ID_128(tile); ++i)
     {
         if (MJ_ID_128(*i) == MJ_ID_128(i[1]) &&
@@ -137,9 +137,9 @@ mj_size mj_chow_available(mj_hand hand, mj_tile const tile, mj_pair *chow_tiles)
                 default: continue;
             }
 
-            for (j = i+1; 
-                 j < hand.tiles+hand.size && 
-                 MJ_SUIT(*j) == MJ_SUIT(tile) && 
+            for (j = i+1;
+                 j < hand.tiles+hand.size &&
+                 MJ_SUIT(*j) == MJ_SUIT(tile) &&
                  MJ_NUMBER(*j)<=MJ_NUMBER(tile)+difference;
                  ++j)
             {

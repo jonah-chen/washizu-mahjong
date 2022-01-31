@@ -68,7 +68,7 @@ static void pinfu_only()
     mj_pair pairs[16];
     mj_size n = mj_n_agari(hand, empty, result, pairs);
     assert(n == 1);
-    
+
     int fu, fan;
 
     memset(yakus, 0, sizeof(yakus));
@@ -100,7 +100,7 @@ static void open_pinfu()
     mj_pair pairs[16];
     mj_size n = mj_n_agari(hand, sixman, result, pairs);
     assert(n == 1);
-    
+
     int fu, fan;
 
     memset(yakus, 0, sizeof(yakus));

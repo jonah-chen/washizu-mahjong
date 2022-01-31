@@ -462,9 +462,9 @@ game::state_type game::self_call()
             {
                 players[cur_player]->send(msg::header::reject, msg::REJECT);
 #ifndef NDEBUG
-                time(server_log) << "Player with UID=" << 
-                    std::to_string(players[cur_player]->uid) << " @" << 
-                    players[cur_player]->ip().value_or("unknown ip") << 
+                time(server_log) << "Player with UID=" <<
+                    std::to_string(players[cur_player]->uid) << " @" <<
+                    players[cur_player]->ip().value_or("unknown ip") <<
                     " called an invalid kong." << std::endl;
 #endif
                 break; /* from switch, try again */

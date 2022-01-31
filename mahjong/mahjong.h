@@ -169,32 +169,32 @@ extern "C" {
 
 /**
  * @brief Parse a string (of specified format) into a hand of tiles.
- * 
+ *
  * @note This method only parses up to the maximum length of a hand, which is 14.
  * Otherwise, the first 14 tiles will be parsed.
- * 
+ *
  * @param str The formatted string to parse.
  * @pre The string must be formatted according to the following format:
  * [numbers]m[numbers]s[numbers]p[numbers]w[numbers]d, where numbers
  * must be (1-9 for non-honors, 1-4 for wind, 1-3 for dragon).
- * Note that all suits must be specified. If no tile of that suit, [numbers] 
+ * Note that all suits must be specified. If no tile of that suit, [numbers]
  * should be empty.
- * 
+ *
  * @param hand The location to store the parsed hand.
- * 
+ *
  */
 void mj_parse(char const *str, mj_hand *hand);
 
 /**
  * @brief Sort the tiles in ascending order.
- * 
+ *
  * @param hand Pointer to the hand to be sorted.
  */
 void mj_sort_hand(mj_hand *hand);
 
 /**
  * @brief Finds all possible pairs in the hand.
- * 
+ *
  * @param hand The hand to search. @pre must be sorted.
  * @param result The array of pairs to fill.
  * @return The number of pairs found.
@@ -203,10 +203,10 @@ mj_size mj_pairs(mj_hand hand, mj_id *result);
 
 /**
  * @brief Find all possible triples that can be formed from the hand.
- * 
+ *
  * @note This includes repeat tiles. (i.e. if hand contains 3 of the same tile,
  * they will be treated seperately).
- * 
+ *
  * @param hand The hand to search. @pre must be sorted.
  * @param result The array to store the triples.
  * @param capacity The maximum number of triples to store.
@@ -216,10 +216,10 @@ mj_size mj_triples(mj_hand hand, mj_triple *result, mj_size capacity);
 
 /**
  * @brief Find all possible combinations of n triples that can be formed from the hand.
- * 
+ *
  * @details This method uses depth first search over a tree. It is useful for finding
  * if a hand is winning or not, and calculating the score (especially the Fu).
- * 
+ *
  * @param hand The hand to search. @pre must be sorted.
  * @param triples The array of triples which the hand can form (or to search through).
  * @param num_triples The size of the triples array.
@@ -231,7 +231,7 @@ mj_size mj_n_triples(mj_hand hand, mj_triple *triples, mj_size num_triples, mj_t
 
 /**
  * @brief Check the winning combinations that a hand can form.
- * 
+ *
  * @param hand The hand to check. @pre must be sorted.
  * @param o_melds The open melds the player has called.
  * @param m_result The sets of 4 melds that the is formed.
@@ -242,11 +242,11 @@ mj_size mj_n_agari(mj_hand hand, mj_meld o_melds, mj_meld *m_result, mj_pair *p_
 
 /**
  * @brief Check if a hand is tenpai.
- * 
+ *
  * @details A hand is tenpai if it is one tile away from a winning hand,
  * which may allow the hand to call RON or TSUMO if the correct tile is
  * dealt.
- * 
+ *
  * @param hand The hand to check. @pre must be sorted.
  * @param o_melds The open melds the player has called.
  * @param result The IDs of different tiles the hand can win with.

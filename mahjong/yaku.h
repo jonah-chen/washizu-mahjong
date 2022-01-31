@@ -75,9 +75,9 @@ static char const *const MJ_YAKU_NAMES[MJ_YAKU_ARR_SIZE] = {
 /**
  * @brief Count the fu of a hand.
  * @requires The hand is already known to not be yakuman or 7 pairs.
- * 
- * @warning This 
- * 
+ *
+ * @warning This
+ *
  * @param yakus The array to store the yakus.
  * @param melds The melds the hand formed.
  * @param pair The pair of the hand.
@@ -90,8 +90,8 @@ int mj_fu(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, mj_tile ro
 /**
  * @brief Count all the possible yakus in a hand.
  * @requires The hand is already known to not be yakuman and 7 pairs.
- * @requires The hand to be already counted for fu. 
- * 
+ * @requires The hand to be already counted for fu.
+ *
  * @param _yakus The array to store the yakus.
  * @param melds The melds the hand formed.
  * @param pair The pair of the hand.
@@ -103,7 +103,7 @@ int mj_fan(unsigned short *_yakus, mj_meld const *melds, mj_pair pair, int preva
 
 /**
  * @brief Check all the possible yakus in a hand, assuming that it is seven pairs.
- * 
+ *
  * @param _yakus The array to store the yakus.
  * @param hand The hand to check.
  * @return The number of fan, or 0 if the hand is not seven pairs.
@@ -114,19 +114,19 @@ int mj_yakuman(unsigned short *yakus, mj_meld const *melds, mj_pair pair, mj_til
 
 /**
  * @brief Calculate the basic score of a hand.
- * 
+ *
  * @details Payments in the game is based on the basic score. Usually,
  * a player gets 4 times the basic score and the dealer gets 6 times
  * the basic score.
- * 
+ *
  * @param fu The number of fu.
  * @param fan The number of fan.
  * @return The basic score of the hand.
  */
 int mj_basic_score(int fu, int fan);
 
-int mj_score(int *fu, int *fan, unsigned short *yakus, 
-    mj_hand const *hand, mj_meld const *melds, mj_tile ron, mj_bool tsumo, 
+int mj_score(int *fu, int *fan, unsigned short *yakus,
+    mj_hand const *hand, mj_meld const *melds, mj_tile ron, mj_bool tsumo,
     int prevailing_wind, int seat_wind);
 
 void mj_print_yaku(unsigned short const *yakus);
