@@ -270,7 +270,7 @@ game::state_type game::call_tsumo()
     int seat_wind = (NUM_PLAYERS+cur_player-dealer)%NUM_PLAYERS;
 
     memset(yakus, 0, sizeof(yakus));
-    yakus[MJ_YAKU_RICHII] = flags[cur_player] & (DOUBLE_RIICHI_FLAG | RIICHI_FLAG);
+    yakus[MJ_YAKU_RICHII] = flags[cur_player] & ANY_RIICHI_FLAG;
     yakus[MJ_YAKU_IPPATSU] = (flags[cur_player] & IPPATSU_FLAG) ? 1 : 0;
     yakus[MJ_YAKU_RINSHAN] = (game_flags & KONG_FLAG) ? 1 : 0;
     yakus[MJ_YAKU_HAITEI] = wall.size() ? 0 : 1;
@@ -409,6 +409,8 @@ void game::start_round()
     for (auto &p_discards : discards)
         p_discards.clear();
 
+    dora_tiles.clear();
+
     wall.reset();
 
     cur_player = dealer;
@@ -416,7 +418,7 @@ void game::start_round()
     {
         for (int j = 0; j < 13; ++j)
             draw();
-        cur_player = (cur_player + 1) % NUM_PLAYERS;
+        cur_player = MJ_NEXT_PLAYER(cur_player);
     }
 
     new_dora();
@@ -486,32 +488,15 @@ game::state_type game::self_call()
             broadcast(msg::header::this_player_riichi, cur_player);
             payment(cur_player, -MJ_RIICHI_DEPOSIT);
             deposit += MJ_RIICHI_DEPOSIT;
-            flags[cur_player] |= RIICHI_FLAG;
-        case msg::header::pass_calls:
+
+            flags[cur_player] |= IPPATSU_FLAG |
+                ((game_flags & FIRST_TURN_FLAG) ? DOUBLE_RIICHI_FLAG : RIICHI_FLAG);
             return state_type::discard;
 
         case msg::header::discard_tile:
-        {
-            auto discarded = msg::data<card_type>(buffer);
-            if (discarded == cur_tile)
-                return state_type::tsumogiri;
-
-            if (mj_discard_tile(&hands[cur_player], discarded))
-            {
-                discards[cur_player].push_back(discarded);
-                broadcast(msg::header::tile, discarded);
-                cur_tile = discarded;
-
-                log_cur("discarded");
-
-                return state_type::opponent_call;
-            }
-            else
-            {
-                players[cur_player]->send(msg::header::reject, msg::REJECT);
-                break; /* from switch, try again */
-            }
-        }
+            messages.push_front({players[cur_player]->uid, buffer});
+        case msg::header::pass_calls:
+            return state_type::discard;
         default:
             break;
         }
@@ -539,7 +524,7 @@ game::state_type game::discard()
 
         if (mj_discard_tile(&hands[cur_player], discarded))
         {
-            if (flags[cur_player] & (DOUBLE_RIICHI_FLAG | RIICHI_FLAG))
+            if (flags[cur_player] & ANY_RIICHI_FLAG && !(flags[cur_player] & IPPATSU_FLAG))
                 return state_type::chombo;
             discards[cur_player].push_back(discarded);
             broadcast(msg::header::tile, discarded);
@@ -593,7 +578,7 @@ game::state_type game::opponent_call()
     // check if it can win
         int seat_wind = (NUM_PLAYERS+p-dealer)%NUM_PLAYERS;
 
-        yakus_if_ron[p][MJ_YAKU_RICHII] = flags[p] & (DOUBLE_RIICHI_FLAG | RIICHI_FLAG);
+        yakus_if_ron[p][MJ_YAKU_RICHII] = flags[p] & ANY_RIICHI_FLAG;
         yakus_if_ron[p][MJ_YAKU_IPPATSU] = (flags[p] & IPPATSU_FLAG) ? 1 : 0;
         yakus_if_ron[p][MJ_YAKU_CHANKAN] = (game_flags & KONG_FLAG) ? 1 : 0;
         yakus_if_ron[p][MJ_YAKU_HOUTEI] = wall.size() ? 0 : 1;
@@ -604,15 +589,33 @@ game::state_type game::opponent_call()
 
 
     std::array<mj_bool, 10> priority {};
-    std::array<std::vector<card_type, optim<4>::allocator<card_type>>, 3> call_tiles;
+    std::array<std::vector<card_type,
+        optim<NUM_PLAYERS>::allocator<card_type>>, NUM_PLAYERS - 1> call_tiles;
 
-    priority[0] = mj_chow_available(hands[order[0]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
-    priority[1] = mj_pong_available(hands[order[2]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
-    priority[2] = mj_pong_available(hands[order[1]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
-    priority[3] = mj_pong_available(hands[order[0]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
-    priority[4] = mj_kong_available(hands[order[2]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
-    priority[5] = mj_kong_available(hands[order[1]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
-    priority[6] = mj_kong_available(hands[order[0]], cur_tile, nullptr) ? MJ_MAYBE : MJ_FALSE;
+    if ( !(flags[order[0]] & ANY_RIICHI_FLAG) )
+    {
+        priority[0] = mj_chow_available(hands[order[0]], cur_tile, nullptr) ?
+            MJ_MAYBE : MJ_FALSE;
+        priority[3] = mj_pong_available(hands[order[0]], cur_tile, nullptr) ?
+            MJ_MAYBE : MJ_FALSE;
+        priority[6] = mj_kong_available(hands[order[0]], cur_tile, nullptr) ?
+            MJ_MAYBE : MJ_FALSE;
+    }
+    if ( !(flags[order[1]] & ANY_RIICHI_FLAG) )
+    {
+        priority[5] = mj_kong_available(hands[order[1]], cur_tile, nullptr) ?
+            MJ_MAYBE : MJ_FALSE;
+        priority[2] = mj_pong_available(hands[order[1]], cur_tile, nullptr) ?
+            MJ_MAYBE : MJ_FALSE;
+    }
+    if ( !(flags[order[2]] & ANY_RIICHI_FLAG) )
+    {
+        priority[1] = mj_pong_available(hands[order[2]], cur_tile, nullptr) ?
+            MJ_MAYBE : MJ_FALSE;
+        priority[4] = mj_kong_available(hands[order[2]], cur_tile, nullptr) ?
+            MJ_MAYBE : MJ_FALSE;
+    }
+
     priority[7] = fan_if_ron[order[2]] > 0 ? MJ_MAYBE : MJ_FALSE;
     priority[8] = fan_if_ron[order[1]] > 0 ? MJ_MAYBE : MJ_FALSE;
     priority[9] = fan_if_ron[order[0]] > 0 ? MJ_MAYBE : MJ_FALSE;
@@ -914,7 +917,7 @@ void game::exhaustive_draw()
         else
         {
             tenpai[p] = MJ_FALSE;
-            if (flags[p] & (DOUBLE_RIICHI_FLAG | RIICHI_FLAG))
+            if (flags[p] & ANY_RIICHI_FLAG)
             {
                 cur_player = p;
                 cur_state = state_type::chombo;

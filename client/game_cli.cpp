@@ -232,9 +232,9 @@ void game::payment()
     buf = interface.recv();
     if (msg::type(buf)!=msg::header::this_many_points)
         invalid_msg();
-    scores[player] += msg::data<int>(buf);
+    scores[player] += msg::data<signed short>(buf);
 
-    std::cout << "Player " << player << " won " << msg::data<int>(buf) <<
+    std::cout << "Player " << player << " won " << msg::data<signed short>(buf) <<
         " points.\n";
 }
 

@@ -161,6 +161,13 @@ public:
 
     queue(queue &&other) noexcept : container(std::move(other.container)) {}
 
+    void push_front(MsgType &&msg)
+    {
+        std::scoped_lock lock(mutex);
+        container.push_front(std::move(msg));
+        notification.notify_one();
+    }
+
     /**
      * @brief Push a message to the queue.
      * @param message The message to be pushed.

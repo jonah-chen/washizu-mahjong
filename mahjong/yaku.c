@@ -540,12 +540,12 @@ void mj_print_yaku(unsigned short const *yakus)
 // mj_bool mj_kokushi(mj_hand const *hand)
 // {
 //     mj_size n_pair = 0;
-//     for (int i = 0; i < 13; i++) 
+//     for (int i = 0; i < 13; i++)
 //     {
 //         if (hand->tiles[i] == hand->tiles[i+1])
 //             n_pair = 1;
 
-//         if (hand->tiles[i+n_pair] != mj_guoshiwushuang[i]) 
+//         if (hand->tiles[i+n_pair] != mj_guoshiwushuang[i])
 //             return MJ_FALSE;
 //     }
 //     return MJ_TRUE;
@@ -557,7 +557,7 @@ void mj_print_yaku(unsigned short const *yakus)
 //         return MJ_FALSE;
 
 //     mj_size grace = 0;
-//     for (int i = 0; i < 13; i++) 
+//     for (int i = 0; i < 13; i++)
 //     {
 //         if (MJ_NUMBER(hand.tiles[i+grace]) != mj_9things[i])
 //             ++grace;
@@ -575,7 +575,7 @@ void mj_print_yaku(unsigned short const *yakus)
 // mj_bool mj_ryuuiisou (mj_hand hand, mj_triple *melds, mj_pair *pair)
 // {
 //     mj_size green_index = 0;
-//     for (mj_size i = 0; i < 14; i++) 
+//     for (mj_size i = 0; i < 14; i++)
 //     {
 //         while (hand.tiles[i] != mj_greens[green_index])
 //         {
@@ -595,7 +595,7 @@ void mj_print_yaku(unsigned short const *yakus)
 // {
 //     if (MJ_NUMBER(pair[0]) != 0 && MJ_NUMBER(pair[0]) != 8)
 //         return MJ_FALSE;
-    
+
 //     for (int i = 0; i < 3; ++i)
 //     {
 //         if (MJ_NUMBER(MJ_FIRST(melds[i])) != 0 && MJ_NUMBER(MJ_THIRD(melds[i])) != 8)

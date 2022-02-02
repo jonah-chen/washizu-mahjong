@@ -144,11 +144,11 @@ void game::self_kong()
 
 void game::payment()
 {
-    int player = msg::data<int>(buf);
+    int player = msg::data<signed short>(buf);
     buf = interface.recv();
     if (msg::type(buf)!=msg::header::this_many_points)
         invalid_msg();
-    scores[player] += msg::data<int>(buf);
+    scores[player] += msg::data<signed short>(buf);
 
     resubmit();
 }

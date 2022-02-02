@@ -79,6 +79,7 @@ public:
     static constexpr flag_type
         RIICHI_FLAG             = 0x0001,
         DOUBLE_RIICHI_FLAG      = 0x0002,
+        ANY_RIICHI_FLAG         = RIICHI_FLAG | DOUBLE_RIICHI_FLAG,
         IPPATSU_FLAG            = 0x0004;
 
     static constexpr flag_type
