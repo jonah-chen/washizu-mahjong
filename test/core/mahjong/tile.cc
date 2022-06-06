@@ -40,7 +40,6 @@ int main()
     t_FalsyTile();
     t_1Man();
     t_NorthWind();
-    std::cout << "allocs: " << allocs << std::endl;
 
     return g_FailureCount;
 }
