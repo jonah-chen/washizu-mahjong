@@ -5,16 +5,6 @@
 #include <cstdint>
 #include "core/utils/stack_allocator.hpp"
 
-#include <cstdlib>
-#include <iostream>
-static int allocs = 0;
-// overload operator new
-inline void *operator new(std::size_t size)
-{
-    ++allocs;
-    return malloc(size);
-}
-
 namespace mj {
 using Fast8 = uint_fast8_t;
 using Fast16 = uint_fast16_t;
