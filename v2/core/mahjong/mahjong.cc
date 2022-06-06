@@ -4,10 +4,15 @@
 
 namespace mj {
 namespace {
-std::vector<Meld> pairs(const Hand &hand) 
+
+using Pairs = s_Vector<Meld, 7>;
+using Triples = s_Vector<Meld, 32>;
+using Combos = s_Vector<Melds, 16>;
+
+Pairs pairs(const Hand &hand) 
 {
     hand.sort();
-    std::vector<Meld> pairs;
+    Pairs pairs;
     for (Fast8 i = 0; i < hand.size() - 1; ++i)
     {
         if (hand[i] == hand[i + 1])
@@ -19,12 +24,12 @@ std::vector<Meld> pairs(const Hand &hand)
     return pairs;
 }
 
-std::vector<Meld> triples(const Hand &hand)
+Triples triples(const Hand &hand)
 {
     hand.sort();
     Fast8 j;
     Fast8 k;
-    std::vector<Meld> triples;
+    Triples triples;
     for (Fast8 i = 0; i < hand.size()-2; ++i)
     {
         if (hand[i].id7() == hand[i+1].id7() &&
@@ -130,14 +135,14 @@ std::unique_ptr<HandArray> dfs(Hand &tiles, const Meld *triples, Fast16 num_meld
     return children;
 }
 
-void add_perms(const Melds &perms, std::vector<Melds> &results)
+void add_perms(const Melds &perms, Combos &results)
 {
     for (const auto &perm : perms)
         for (Melds &result : results)
             result.push_back(perm);
 }
 
-void add_arrays(const std::unique_ptr<HandArray> &root, std::vector<Melds> &result, std::size_t offset)
+void add_arrays(const std::unique_ptr<HandArray> &root, Combos &result, std::size_t offset)
 {
     if (root->empty()) return;
 
@@ -151,7 +156,7 @@ void add_arrays(const std::unique_ptr<HandArray> &root, std::vector<Melds> &resu
     }
 }
 
-std::vector<Melds> n_triples(Hand &hand, const std::vector<Meld> &triples, Fast8 n)
+Combos n_triples(Hand &hand, const Triples &triples, Fast8 n)
 {
     if (triples.size() < n) return {};
 
@@ -183,7 +188,7 @@ std::vector<Melds> n_triples(Hand &hand, const std::vector<Meld> &triples, Fast8
     auto children = dfs(hand, triples.data(), triples.size(), n-perms.size());
     if (!children) return {};
 
-    std::vector<Melds> results(children->count);
+    Combos results(children->count);
     if (perms.size() < n)
         add_arrays(children, results, 0);
     if (perms.size())
@@ -192,7 +197,7 @@ std::vector<Melds> n_triples(Hand &hand, const std::vector<Meld> &triples, Fast8
     return results;
 }
 
-void add_tenpai_tile(std::vector<Tile> &waiting, Hand hand_cpy, Suit suit, Fast8 num)
+void add_tenpai_tile(WaitingTiles &waiting, Hand hand_cpy, Suit suit, Fast8 num)
 {
     hand_cpy.push_back(Tile(suit, num));
     hand_cpy.sort();
@@ -239,12 +244,12 @@ Hand Hand::clean() const
 }
 
 
-std::vector<Win> Hand::agari() const
+Wins Hand::agari() const
 {
     auto p = pairs(*this);
     if (p.empty()) return {};
 
-    std::vector<Win> wins;
+    Wins wins;
     const Fast8 closed_melds = k_MaxNumMeld - melds();
     if (closed_melds == 0)
     {
@@ -285,12 +290,12 @@ std::vector<Win> Hand::agari() const
     return wins;
 }
 
-std::vector<Tile> Hand::tenpai() const
+WaitingTiles Hand::tenpai() const
 {
     if (size() + 3*melds() != k_MaxHandSize - 1) return {};
 
     Fast8 idx = 0;
-    std::vector<Tile> waiting;
+    WaitingTiles waiting;
     for (auto suit = Suit::Man;;++suit)
     {
         while((*this)[idx].suit() != suit)

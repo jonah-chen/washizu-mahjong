@@ -172,6 +172,7 @@ public:
     constexpr bool operator>=(const Tile &rhs) const
     { return id_ >= rhs.id_; }
 };
+
 class Meld
 {
 public:
@@ -217,9 +218,13 @@ struct Win
     Melds melds;
     Meld pair;
     U16 flags;
+    Win() noexcept : flags(1) {}
     Win(const Melds &melds, const Meld &pair, U16 flags=0)
         : melds(melds), pair(pair), flags(flags) {}
 };
+
+using WaitingTiles = s_Vector<Tile, 13>;
+using Wins = s_Vector<Win, 8>;
 
 class Hand
 {
@@ -227,8 +232,8 @@ public:
     Hand() = default;
     Hand(const char *);
 
-    std::vector<Win> agari() const;
-    std::vector<Tile> tenpai() const;
+    Wins agari() const;
+    WaitingTiles tenpai() const;
 
     void sort() const;
     Hand clean() const;
