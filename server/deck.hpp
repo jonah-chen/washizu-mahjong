@@ -52,6 +52,7 @@ public:
      * tiles in the live wall.
      *
      * @return A tile in the dead wall.
+     * @return MJ_INVALID_TILE if the dead wall is depleated.
      */
     card_type draw_dora();
 

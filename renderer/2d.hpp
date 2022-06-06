@@ -152,8 +152,8 @@ private:
 "}\n"
     };
 
-    texture tile_tex {"/home/john/CLionProjects/washizu-mahjong/assets/texture/tiles.png"};
-    text text_tex {"/home/john/CLionProjects/washizu-mahjong/assets/texture/text.png"};
+    texture tile_tex {"assets/texture/tiles.png"};
+    text text_tex {"assets/texture/text.png"};
 
 private:
     void flush_impl();
