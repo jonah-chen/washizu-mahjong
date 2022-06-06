@@ -232,9 +232,10 @@ void Hand::sort() const
 Hand Hand::clean() const
 {
     Hand output;
-    std::copy_if(tiles_.begin(), tiles_.end(), output.tiles_.begin(), 
-                [](const Tile &tile) {return tile;});
-    return output; 
+    for (const auto &tile : tiles_)
+        if (tile)
+            output.tiles_.emplace_back(tile);
+    return output;
 }
 
 
@@ -322,7 +323,7 @@ std::vector<Tile> Hand::tenpai() const
     for (int num = 0;; ++num)
     {
         while((*this)[idx].suit() == Suit::Wind &&
-            (*this)[idx].num() != num-1)
+            (*this)[idx].num() != num)
         {
             if ((*this)[idx].num() < num)
                 ++idx;
@@ -338,7 +339,7 @@ std::vector<Tile> Hand::tenpai() const
     for (int num = 0;; ++num)
     {
         while((*this)[idx].suit() == Suit::Dragon &&
-            (*this)[idx].num() != num-1)
+            (*this)[idx].num() != num)
         {
             if ((*this)[idx].num() < num)
                 ++idx;

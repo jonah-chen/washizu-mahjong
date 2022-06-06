@@ -5,6 +5,16 @@
 #include <cstdint>
 #include "core/utils/stack_allocator.hpp"
 
+#include <cstdlib>
+#include <iostream>
+static int allocs = 0;
+// overload operator new
+inline void *operator new(std::size_t size)
+{
+    ++allocs;
+    return malloc(size);
+}
+
 namespace mj {
 using Fast8 = uint_fast8_t;
 using Fast16 = uint_fast16_t;
@@ -72,17 +82,12 @@ namespace tilelayout
 
 enum class Suit : U16
 {
-    Man = 0,
-    Pin = 1,
-    Sou = 2 ,
-    Wind = 3,
-    Dragon = 4
+    Man, Pin, Sou, Wind, Dragon
 };
 
 constexpr Suit &operator++(Suit &suit)
 {
-    return suit = static_cast<Suit>(
-        static_cast<U16>(suit) + (1 << tilelayout::k_SuitPos));
+    return suit = static_cast<Suit>(static_cast<U16>(suit) + 1);
 }
 
 constexpr bool operator==(Suit lhs, Suit rhs)
