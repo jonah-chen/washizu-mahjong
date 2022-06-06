@@ -4,7 +4,6 @@
 
 namespace mj {
 namespace {
-
 using Pairs = s_Vector<Meld, 7>;
 using Triples = s_Vector<Meld, 32>;
 using Combos = s_Vector<Melds, 16>;
@@ -212,7 +211,6 @@ Hand::Hand(const char *str)
 {
     const char *suits = "mpswd";
     Fast8 cur_suit = 0;
-    Fast8 cur_sub;
     for (; *str && size() < k_MaxHandSize; ++str)
     {
         if (*str < '1' || *str > '9')
@@ -222,7 +220,7 @@ Hand::Hand(const char *str)
                     return;
         }
         else
-            tiles_.emplace_back(Suit(cur_suit), *str - '1', cur_sub);
+            tiles_.emplace_back(Suit(cur_suit), *str - '1');
     }
 }
 
